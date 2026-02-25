@@ -293,10 +293,11 @@ app.post('/api/players', requireAuth, async (req, res) => {
 
 app.delete('/api/players/:id', requireAuth, async (req, res) => {
   try {
-    const result = await dbFetch(`/players/${req.params.id}`, { method: 'DELETE' });
+    const force = req.query.force === 'true' ? '?force=true' : '';
+    const result = await dbFetch(`/players/${req.params.id}${force}`, { method: 'DELETE' });
     res.json(result);
   } catch (e) {
-    if (e.status === 409) return res.status(400).json({ error: 'Cannot delete a player who has match history' });
+    if (e.status === 409) return res.status(409).json({ error: 'Player has match history' });
     res.status(500).json({ error: 'Database error' });
   }
 });

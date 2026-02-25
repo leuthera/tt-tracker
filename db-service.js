@@ -35,6 +35,7 @@ const stmts = {
   getPlayer:          db.prepare('SELECT * FROM players WHERE id = ?'),
   insertPlayer:       db.prepare('INSERT INTO players (id, name, created_at) VALUES (?, ?, ?)'),
   deletePlayer:       db.prepare('DELETE FROM players WHERE id = ?'),
+  deletePlayerMatches: db.prepare('DELETE FROM matches WHERE player1_id = ? OR player2_id = ?'),
   playerHasMatch:     db.prepare('SELECT 1 FROM matches WHERE player1_id = ? OR player2_id = ? LIMIT 1'),
   getMatch:           db.prepare('SELECT * FROM matches WHERE id = ?'),
   getMatches:         db.prepare('SELECT * FROM matches ORDER BY date DESC'),
@@ -81,8 +82,10 @@ app.post('/players', (req, res) => {
 
 app.delete('/players/:id', (req, res) => {
   const { id } = req.params;
+  const force = req.query.force === 'true';
   if (stmts.playerHasMatch.get(id, id)) {
-    return res.status(409).json({ error: 'Player has matches' });
+    if (!force) return res.status(409).json({ error: 'Player has matches' });
+    stmts.deletePlayerMatches.run(id, id);
   }
   stmts.deletePlayer.run(id);
   res.json({ ok: true });

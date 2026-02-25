@@ -1233,7 +1233,11 @@
       throw new Error('Session expired');
     }
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || 'Request failed');
+    if (!res.ok) {
+      const err = new Error(data.error || 'Request failed');
+      err.status = res.status;
+      throw err;
+    }
     return data;
   }
 
@@ -1275,13 +1279,15 @@
     }
   }
 
-  async function deletePlayer(id) {
+  async function deletePlayer(id, force) {
     try {
-      await apiFetch(`/api/players/${id}`, { method: 'DELETE' });
+      const qs = force ? '?force=true' : '';
+      await apiFetch(`/api/players/${id}${qs}`, { method: 'DELETE' });
       await refreshPlayers();
+      await refreshMatches();
       return { ok: true };
     } catch(e) {
-      return { ok: false, error: e.message };
+      return { ok: false, error: e.message, status: e.status };
     }
   }
 
@@ -1947,12 +1953,32 @@
 
     document.getElementById('modal-delete-player').addEventListener('click', () => {
       hideModal();
-      showConfirmModal(`Delete ${player.name}?`, async () => {
-        const res = await deletePlayer(playerId);
-        if (!res.ok) { showToast(res.error, 'error'); return; }
-        showToast(`${player.name} deleted`, 'success');
+      const hasMatches = playerMatches.length > 0;
+      const msg = hasMatches
+        ? `This player has ${playerMatches.length} match(es). Delete ${player.name} AND all their matches?`
+        : `Delete ${player.name}?`;
+      showConfirmModal(msg, async () => {
+        const res = await deletePlayer(playerId, hasMatches);
+        if (!res.ok) {
+          if (res.status === 409) {
+            // Race condition: matches appeared between render and click
+            showConfirmModal(`This player now has match history. Delete ${player.name} AND all their matches?`, async () => {
+              const res2 = await deletePlayer(playerId, true);
+              if (!res2.ok) { showToast(res2.error, 'error'); return; }
+              showToast(`${player.name} and their matches deleted`, 'success');
+              renderPlayers();
+              if (state.currentTab === 'home') renderHome();
+              if (state.currentTab === 'history') renderHistory();
+            });
+            return;
+          }
+          showToast(res.error, 'error');
+          return;
+        }
+        showToast(hasMatches ? `${player.name} and their matches deleted` : `${player.name} deleted`, 'success');
         renderPlayers();
         if (state.currentTab === 'home') renderHome();
+        if (state.currentTab === 'history') renderHistory();
       });
     });
   }

@@ -42,5 +42,38 @@ services:
       - "3000"
     restart: unless-stopped
 
+  app-test:
+    build: .
+    ports:
+      - "8001:8000"
+    environment:
+      - ADMIN_PASS=CHANGE_ME
+      - ADMIN_USER=admin
+      - SESSION_SECRET=test-secret
+      - DB_URL=http://db-test:3000
+    depends_on:
+      db-test:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db-test:
+    build:
+      context: .
+      dockerfile: db-service.Dockerfile
+    volumes:
+      - tt-data-test:/data
+    environment:
+      - DB_PATH=/data/data.db
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    expose:
+      - "3000"
+    restart: unless-stopped
+
 volumes:
   tt-data:
+  tt-data-test:
