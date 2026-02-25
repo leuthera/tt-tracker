@@ -7,23 +7,28 @@
  * player stats, and head-to-head records.
  *
  * PREREQUISITES:
- *   - Node.js 18+ (uses built-in crypto)
+ *   - Node.js 18+ (uses built-in crypto and fetch)
  *   - npm (for installing dependencies)
  *
  * SETUP & RUN:
  *   cd /path/to/tt-tracker
- *   npm install            # installs express, express-session, better-sqlite3
+ *   npm install            # installs express, express-session
  *   node server.js         # starts on http://localhost:8000
+ *
+ * HTTPS (optional):
+ *   Set TLS_CERT and TLS_KEY to file paths of your certificate and private key.
+ *   TLS_CERT=/path/to/cert.pem TLS_KEY=/path/to/key.pem node server.js
  *
  * DEFAULT LOGIN:
  *   Set ADMIN_USER and ADMIN_PASS environment variables
  *
  * DATA:
- *   All data is stored in a SQLite file (data.db) in this directory.
- *   Back up this file to preserve your match history.
+ *   Data is stored via the db-service container (SQLite).
+ *   The db service is accessed over the Docker internal network.
  *
  * FILES:
- *   server.js   — Express server: auth, sessions, REST API, SQLite
+ *   server.js   — Express server: auth, sessions, REST API proxy
+ *   db-service.js — SQLite microservice (separate container)
  *   index.html  — Single-page mobile-first frontend (served at /)
  * ============================================================
  */
@@ -32,7 +37,7 @@
 
 const express = require('express');
 const session = require('express-session');
-const Database = require('better-sqlite3');
+const https = require('https');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -62,47 +67,20 @@ const USERS = [
 ];
 const PORT = process.env.PORT || 8000;
 const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
-const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'data.db');
+const DB_URL = process.env.DB_URL || 'http://db:3000';
+const TLS_CERT = process.env.TLS_CERT;
+const TLS_KEY = process.env.TLS_KEY;
 
-// ─── DATABASE ─────────────────────────────────────────────────────────────────
-const db = new Database(DB_PATH);
-
-db.exec(`
-  CREATE TABLE IF NOT EXISTS players (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL UNIQUE COLLATE NOCASE,
-    created_at INTEGER NOT NULL
-  );
-
-  CREATE TABLE IF NOT EXISTS matches (
-    id TEXT PRIMARY KEY,
-    date INTEGER NOT NULL,
-    player1_id TEXT NOT NULL,
-    player2_id TEXT NOT NULL,
-    sets TEXT NOT NULL,
-    winner_id TEXT,
-    note TEXT DEFAULT '',
-    FOREIGN KEY (player1_id) REFERENCES players(id),
-    FOREIGN KEY (player2_id) REFERENCES players(id)
-  );
-`);
-
-// Prepared statements
-const stmts = {
-  getPlayers:      db.prepare('SELECT * FROM players ORDER BY name COLLATE NOCASE'),
-  getPlayer:       db.prepare('SELECT * FROM players WHERE id = ?'),
-  insertPlayer:    db.prepare('INSERT INTO players (id, name, created_at) VALUES (?, ?, ?)'),
-  deletePlayer:    db.prepare('DELETE FROM players WHERE id = ?'),
-  playerHasMatch:  db.prepare('SELECT 1 FROM matches WHERE player1_id = ? OR player2_id = ? LIMIT 1'),
-  getMatch:        db.prepare('SELECT * FROM matches WHERE id = ?'),
-  getMatches:      db.prepare('SELECT * FROM matches ORDER BY date DESC'),
-  getMatchesByPlayer: db.prepare('SELECT * FROM matches WHERE player1_id = ? OR player2_id = ? ORDER BY date DESC'),
-  insertMatch:     db.prepare('INSERT INTO matches (id, date, player1_id, player2_id, sets, winner_id, note) VALUES (?, ?, ?, ?, ?, ?, ?)'),
-  deleteMatch:     db.prepare('DELETE FROM matches WHERE id = ?'),
-};
-
-function generateId(prefix) {
-  return prefix + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+// ─── DB CLIENT ────────────────────────────────────────────────────────────────
+async function dbFetch(path, options) {
+  const res = await fetch(`${DB_URL}${path}`, options);
+  const body = await res.json();
+  if (!res.ok) {
+    const err = new Error(body.error || `DB service error ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
+  return body;
 }
 
 // ─── EXPRESS APP ──────────────────────────────────────────────────────────────
@@ -114,7 +92,7 @@ app.use(session({
   secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
-  cookie: { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 } // 7 days
+  cookie: { httpOnly: true, secure: !!(TLS_CERT && TLS_KEY), maxAge: 7 * 24 * 60 * 60 * 1000 } // 7 days
 }));
 
 // ─── AUTH MIDDLEWARE ───────────────────────────────────────────────────────────
@@ -255,78 +233,6 @@ app.get('/', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// ─── API: PLAYERS ─────────────────────────────────────────────────────────────
-app.get('/api/players', requireAuth, (req, res) => {
-  res.json(stmts.getPlayers.all().map(dbToPlayer));
-});
-
-app.post('/api/players', requireAuth, (req, res) => {
-  const name = (req.body.name || '').trim();
-  if (!name) return res.status(400).json({ error: 'Name cannot be empty' });
-  if (name.length > 30) return res.status(400).json({ error: 'Name too long (max 30 chars)' });
-
-  const id = generateId('p');
-  try {
-    stmts.insertPlayer.run(id, name, Date.now());
-    res.json(dbToPlayer(stmts.getPlayer.get(id)));
-  } catch(e) {
-    if (e.message.includes('UNIQUE')) return res.status(400).json({ error: 'A player with this name already exists' });
-    res.status(500).json({ error: 'Database error' });
-  }
-});
-
-app.delete('/api/players/:id', requireAuth, (req, res) => {
-  const { id } = req.params;
-  if (stmts.playerHasMatch.get(id, id)) {
-    return res.status(400).json({ error: 'Cannot delete a player who has match history' });
-  }
-  stmts.deletePlayer.run(id);
-  res.json({ ok: true });
-});
-
-// ─── API: MATCHES ─────────────────────────────────────────────────────────────
-app.get('/api/matches', requireAuth, (req, res) => {
-  const { player } = req.query;
-  const rows = player
-    ? stmts.getMatchesByPlayer.all(player, player)
-    : stmts.getMatches.all();
-  res.json(rows.map(dbToMatch));
-});
-
-app.post('/api/matches', requireAuth, (req, res) => {
-  const { player1Id, player2Id, sets, note } = req.body;
-  if (!player1Id || !player2Id) return res.status(400).json({ error: 'Both players required' });
-  if (player1Id === player2Id) return res.status(400).json({ error: 'Players must be different' });
-  if (!stmts.getPlayer.get(player1Id) || !stmts.getPlayer.get(player2Id)) {
-    return res.status(400).json({ error: 'One or both players not found' });
-  }
-  if (!Array.isArray(sets) || sets.length === 0) return res.status(400).json({ error: 'At least one set required' });
-  if (sets.length > 9) return res.status(400).json({ error: 'Too many sets (max 9)' });
-
-  for (let i = 0; i < sets.length; i++) {
-    const s = sets[i];
-    if (!s || typeof s !== 'object') return res.status(400).json({ error: `Set ${i+1}: invalid format` });
-    const p1Score = Number(s.p1);
-    const p2Score = Number(s.p2);
-    if (!Number.isFinite(p1Score) || !Number.isFinite(p2Score) || p1Score < 0 || p2Score < 0 || p1Score > 99 || p2Score > 99) {
-      return res.status(400).json({ error: `Set ${i+1}: scores must be numbers between 0 and 99` });
-    }
-    if (p1Score === p2Score) {
-      return res.status(400).json({ error: `Set ${i+1}: scores must be different` });
-    }
-  }
-
-  const winnerId = determineWinner(sets, player1Id, player2Id);
-  const id = generateId('m');
-  stmts.insertMatch.run(id, Date.now(), player1Id, player2Id, JSON.stringify(sets), winnerId, (note || '').trim());
-  res.json(dbToMatch(stmts.getMatch.get(id)));
-});
-
-app.delete('/api/matches/:id', requireAuth, (req, res) => {
-  stmts.deleteMatch.run(req.params.id);
-  res.json({ ok: true });
-});
-
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 function dbToPlayer(row) {
   return { id: row.id, name: row.name, createdAt: row.created_at };
@@ -357,9 +263,130 @@ function determineWinner(sets, p1Id, p2Id) {
   return null;
 }
 
-// ─── START ────────────────────────────────────────────────────────────────────
-app.listen(PORT, () => {
-  console.log(`TT Tracker running at http://localhost:${PORT}`);
-  console.log(`Login: ${ADMIN_USER}`);
-  console.log(`Database: ${DB_PATH}`);
+// ─── API: PLAYERS ─────────────────────────────────────────────────────────────
+app.get('/api/players', requireAuth, async (req, res) => {
+  try {
+    const rows = await dbFetch('/players');
+    res.json(rows.map(dbToPlayer));
+  } catch (e) {
+    res.status(500).json({ error: 'Database error' });
+  }
 });
+
+app.post('/api/players', requireAuth, async (req, res) => {
+  const name = (req.body.name || '').trim();
+  if (!name) return res.status(400).json({ error: 'Name cannot be empty' });
+  if (name.length > 30) return res.status(400).json({ error: 'Name too long (max 30 chars)' });
+
+  try {
+    const player = await dbFetch('/players', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+    res.json(dbToPlayer(player));
+  } catch (e) {
+    if (e.status === 409) return res.status(400).json({ error: 'A player with this name already exists' });
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+app.delete('/api/players/:id', requireAuth, async (req, res) => {
+  try {
+    const result = await dbFetch(`/players/${req.params.id}`, { method: 'DELETE' });
+    res.json(result);
+  } catch (e) {
+    if (e.status === 409) return res.status(400).json({ error: 'Cannot delete a player who has match history' });
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ─── API: MATCHES ─────────────────────────────────────────────────────────────
+app.get('/api/matches', requireAuth, async (req, res) => {
+  try {
+    const { player } = req.query;
+    const url = player ? `/matches?player=${encodeURIComponent(player)}` : '/matches';
+    const rows = await dbFetch(url);
+    res.json(rows.map(dbToMatch));
+  } catch (e) {
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+app.post('/api/matches', requireAuth, async (req, res) => {
+  const { player1Id, player2Id, sets, note } = req.body;
+  if (!player1Id || !player2Id) return res.status(400).json({ error: 'Both players required' });
+  if (player1Id === player2Id) return res.status(400).json({ error: 'Players must be different' });
+
+  // Validate players exist
+  try {
+    await dbFetch(`/players/${player1Id}`);
+    await dbFetch(`/players/${player2Id}`);
+  } catch (e) {
+    return res.status(400).json({ error: 'One or both players not found' });
+  }
+
+  if (!Array.isArray(sets) || sets.length === 0) return res.status(400).json({ error: 'At least one set required' });
+  if (sets.length > 9) return res.status(400).json({ error: 'Too many sets (max 9)' });
+
+  for (let i = 0; i < sets.length; i++) {
+    const s = sets[i];
+    if (!s || typeof s !== 'object') return res.status(400).json({ error: `Set ${i+1}: invalid format` });
+    const p1Score = Number(s.p1);
+    const p2Score = Number(s.p2);
+    if (!Number.isFinite(p1Score) || !Number.isFinite(p2Score) || p1Score < 0 || p2Score < 0 || p1Score > 99 || p2Score > 99) {
+      return res.status(400).json({ error: `Set ${i+1}: scores must be numbers between 0 and 99` });
+    }
+    if (p1Score === p2Score) {
+      return res.status(400).json({ error: `Set ${i+1}: scores must be different` });
+    }
+  }
+
+  const winnerId = determineWinner(sets, player1Id, player2Id);
+
+  try {
+    const match = await dbFetch('/matches', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        date: Date.now(),
+        player1_id: player1Id,
+        player2_id: player2Id,
+        sets: JSON.stringify(sets),
+        winner_id: winnerId,
+        note: (note || '').trim(),
+      }),
+    });
+    res.json(dbToMatch(match));
+  } catch (e) {
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+app.delete('/api/matches/:id', requireAuth, async (req, res) => {
+  try {
+    const result = await dbFetch(`/matches/${req.params.id}`, { method: 'DELETE' });
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ─── START ────────────────────────────────────────────────────────────────────
+if (TLS_CERT && TLS_KEY) {
+  const tlsOptions = {
+    cert: fs.readFileSync(TLS_CERT),
+    key: fs.readFileSync(TLS_KEY),
+  };
+  https.createServer(tlsOptions, app).listen(PORT, () => {
+    console.log(`TT Tracker running at https://localhost:${PORT}`);
+    console.log(`Login: ${ADMIN_USER}`);
+    console.log(`DB service: ${DB_URL}`);
+  });
+} else {
+  app.listen(PORT, () => {
+    console.log(`TT Tracker running at http://localhost:${PORT}`);
+    console.log(`Login: ${ADMIN_USER}`);
+    console.log(`DB service: ${DB_URL}`);
+  });
+}

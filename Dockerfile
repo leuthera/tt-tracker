@@ -10,9 +10,6 @@ RUN npm install --omit=dev
 COPY server.js index.html ./
 COPY manifest.json icon.svg sw.js ./
 
-# Data directory for the SQLite volume
-RUN mkdir -p /data
-
 EXPOSE 8000
 
 CMD ["node", "server.js"]

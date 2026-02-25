@@ -1,0 +1,9 @@
+{
+  "name": "tt-tracker-db",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "better-sqlite3": "^12.6.2",
+    "express": "^5.2.1"
+  }
+}

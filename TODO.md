@@ -107,5 +107,5 @@
 - [x] Dark mode
 - [x] Docker Compose file
 - [ ] CI/CD pipeline
-- [ ] HTTPS / TLS configuration
+- [x] HTTPS / TLS configuration
 - [x] Health check endpoint

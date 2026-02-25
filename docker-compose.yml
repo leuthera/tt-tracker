@@ -1,21 +1,45 @@
 services:
-  tt-tracker:
+  app:
     build: .
     ports:
       - "8000:8000"
-    volumes:
-      - tt-data:/data
+      # Uncomment to enable HTTPS — mount a directory containing cert.pem and key.pem:
+      # - ./certs:/certs:ro
     environment:
       - ADMIN_PASS=CHANGE_ME       # REQUIRED — set a real password before starting
       - ADMIN_USER=admin
       - SESSION_SECRET=replace-with-a-long-random-string
-      - DB_PATH=/data/data.db
+      - DB_URL=http://db:3000
+      # Uncomment to enable HTTPS:
+      # - TLS_CERT=/certs/cert.pem
+      # - TLS_KEY=/certs/key.pem
+    depends_on:
+      db:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8000/healthz"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 10s
+    restart: unless-stopped
+
+  db:
+    build:
+      context: .
+      dockerfile: db-service.Dockerfile
+    volumes:
+      - tt-data:/data
+    environment:
+      - DB_PATH=/data/data.db
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    expose:
+      - "3000"
     restart: unless-stopped
 
 volumes:
