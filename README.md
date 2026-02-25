@@ -59,6 +59,12 @@ flowchart TD
 - Vanilla JS single-page frontend
 - Docker Compose (prod + test instances)
 
+## User Accounts
+
+Two roles: **admin** (full access including delete and user management) and **user** (can log matches and view stats, cannot delete).
+
+On first startup, the admin account is seeded from `ADMIN_USER`/`ADMIN_PASS` env vars. After that, admins manage users through the UI (gear icon in the header). `ADMIN_PASS` is only required when no users exist yet.
+
 ## Run
 
 ```bash
@@ -66,9 +72,19 @@ npm install
 ADMIN_PASS=yourpassword node server.js
 ```
 
-Runs on `http://localhost:8000`.
+Runs on `http://localhost:8000`. The build version (git SHA) is shown in the header when built with `--build-arg BUILD_SHA=<hash>`.
 
-Env vars: `ADMIN_USER` (default: admin), `ADMIN_PASS` (required), `PORT`, `DB_PATH`, `SESSION_SECRET`, `TLS_CERT`, `TLS_KEY`.
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ADMIN_USER` | `admin` | Initial admin username (bootstrap only) |
+| `ADMIN_PASS` | — | Initial admin password (required on first run) |
+| `SESSION_SECRET` | random | Session encryption key |
+| `DB_URL` | `http://db:3000` | db-service URL |
+| `DB_TOKEN` | — | Shared auth token between app and db-service |
+| `PORT` | `8000` | Server port |
+| `BUILD_SHA` | `dev` | Git commit hash shown in UI header |
+| `TLS_CERT` | — | Path to TLS certificate (enables HTTPS) |
+| `TLS_KEY` | — | Path to TLS private key |
 
 ## Docker Compose
 

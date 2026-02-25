@@ -1,8 +1,8 @@
 {
   "name": "tt-tracker",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Table tennis match tracker with player stats, head-to-head records, and leaderboards",
+  "main": "server.js",
   "scripts": {
     "test": "node --test test/**/*.test.js",
     "test:unit": "node --test test/unit/**/*.test.js",
@@ -16,6 +16,6 @@
     "express-session": "^1.19.0"
   },
   "devDependencies": {
-    "better-sqlite3": "^11.0.0"
+    "better-sqlite3": "^11.10.0"
   }
 }

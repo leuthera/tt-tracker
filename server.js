@@ -19,8 +19,10 @@
  *   Set TLS_CERT and TLS_KEY to file paths of your certificate and private key.
  *   TLS_CERT=/path/to/cert.pem TLS_KEY=/path/to/key.pem node server.js
  *
- * DEFAULT LOGIN:
- *   Set ADMIN_USER and ADMIN_PASS environment variables
+ * USER ACCOUNTS:
+ *   On first startup, set ADMIN_USER and ADMIN_PASS env vars to seed the
+ *   initial admin account. After that, manage users through the admin UI.
+ *   Roles: "admin" (full access) and "user" (read/write, no delete).
  *
  * DATA:
  *   Data is stored via the db-service container (SQLite).

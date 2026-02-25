@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const {
   hashPassword, verifyPassword,
   countSetWins, determineWinner,
-  dbToPlayer, dbToMatch,
+  dbToPlayer, dbToMatch, dbToUser,
 } = require('../../lib/helpers');
 
 describe('hashPassword / verifyPassword', () => {
@@ -106,5 +106,19 @@ describe('dbToMatch', () => {
       sets: '[]', winner_id: null, note: null
     };
     assert.equal(dbToMatch(row).note, '');
+  });
+});
+
+describe('dbToUser', () => {
+  it('transforms a db row to API format', () => {
+    const row = { id: 'u_1', username: 'alice', role: 'admin', created_at: 1700000000, password: 'secret:hash' };
+    const result = dbToUser(row);
+    assert.deepEqual(result, { id: 'u_1', username: 'alice', role: 'admin', createdAt: 1700000000 });
+  });
+
+  it('does not expose password', () => {
+    const row = { id: 'u_1', username: 'bob', role: 'user', created_at: 1700000000, password: 'secret:hash' };
+    const result = dbToUser(row);
+    assert.equal(result.password, undefined);
   });
 });
