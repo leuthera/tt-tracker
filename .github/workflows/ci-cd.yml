@@ -80,6 +80,13 @@ jobs:
           script: |
             cd ~/tt-tracker
             git pull origin main
+            if [ ! -f .env ]; then
+              echo "ADMIN_PASS=CHANGE_ME" > .env
+              echo "SESSION_SECRET=$(openssl rand -hex 32)" >> .env
+              echo "TLS_CERT=/etc/letsencrypt/live/h2266675.stratoserver.net/fullchain.pem" >> .env
+              echo "TLS_KEY=/etc/letsencrypt/live/h2266675.stratoserver.net/privkey.pem" >> .env
+              echo "WARNING: Created default .env — update ADMIN_PASS!"
+            fi
             docker compose up --build -d app db
             echo "Waiting for app to be healthy..."
             for i in $(seq 1 60); do

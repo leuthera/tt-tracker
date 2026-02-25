@@ -5,14 +5,11 @@ services:
       - "8000:8000"
     volumes:
       - /etc/letsencrypt:/etc/letsencrypt:ro
+    env_file:
+      - path: .env
+        required: false
     environment:
-      - ADMIN_PASS=${ADMIN_PASS:-}
-      - ADMIN_USER=${ADMIN_USER:-admin}
-      - SESSION_SECRET=${SESSION_SECRET:-}
-      - DB_TOKEN=${DB_TOKEN:-}
       - DB_URL=http://db:3000
-      - TLS_CERT=${TLS_CERT:-}
-      - TLS_KEY=${TLS_KEY:-}
     depends_on:
       db:
         condition: service_healthy
@@ -29,9 +26,11 @@ services:
       dockerfile: db-service.Dockerfile
     volumes:
       - tt-data:/data
+    env_file:
+      - path: .env
+        required: false
     environment:
       - DB_PATH=/data/data.db
-      - DB_TOKEN=${DB_TOKEN:-}
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/healthz"]
       interval: 10s
