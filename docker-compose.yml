@@ -6,9 +6,9 @@ services:
     volumes:
       - /etc/letsencrypt:/etc/letsencrypt:ro
     environment:
-      - ADMIN_PASS=${ADMIN_PASS:?Set ADMIN_PASS in .env}
+      - ADMIN_PASS=${ADMIN_PASS:-}
       - ADMIN_USER=${ADMIN_USER:-admin}
-      - SESSION_SECRET=${SESSION_SECRET:?Set SESSION_SECRET in .env}
+      - SESSION_SECRET=${SESSION_SECRET:-}
       - DB_TOKEN=${DB_TOKEN:-}
       - DB_URL=http://db:3000
       - TLS_CERT=${TLS_CERT:-}
