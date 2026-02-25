@@ -39,6 +39,7 @@ const express = require('express');
 const session = require('express-session');
 const http = require('http');
 const https = require('https');
+const net = require('net');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -380,24 +381,27 @@ if (TLS_CERT && TLS_KEY) {
     cert: fs.readFileSync(TLS_CERT),
     key: fs.readFileSync(TLS_KEY),
   };
-  https.createServer(tlsOptions, app).listen(PORT, () => {
+  const httpsServer = https.createServer(tlsOptions, app);
+  const httpRedirect = http.createServer((req, res) => {
+    const host = (req.headers.host || '').replace(/:\d+$/, '');
+    const port = PORT == 443 ? '' : `:${PORT}`;
+    res.writeHead(301, { Location: `https://${host}${port}${req.url}` });
+    res.end();
+  });
+
+  // Multiplex HTTP/HTTPS on the same port — peek at the first byte
+  // to distinguish TLS handshakes (0x16) from plain HTTP
+  net.createServer(socket => {
+    socket.once('data', buf => {
+      socket.unshift(buf);
+      (buf[0] === 0x16 ? httpsServer : httpRedirect).emit('connection', socket);
+    });
+  }).listen(PORT, () => {
     console.log(`TT Tracker running at https://localhost:${PORT}`);
+    console.log(`HTTP on port ${PORT} redirects to HTTPS`);
     console.log(`Login: ${ADMIN_USER}`);
     console.log(`DB service: ${DB_URL}`);
   });
-
-  // HTTP → HTTPS redirect
-  const HTTP_PORT = process.env.HTTP_PORT;
-  if (HTTP_PORT) {
-    http.createServer((req, res) => {
-      const host = (req.headers.host || '').replace(/:\d+$/, '');
-      const port = PORT == 443 ? '' : `:${PORT}`;
-      res.writeHead(301, { Location: `https://${host}${port}${req.url}` });
-      res.end();
-    }).listen(HTTP_PORT, () => {
-      console.log(`HTTP → HTTPS redirect on port ${HTTP_PORT}`);
-    });
-  }
 } else {
   app.listen(PORT, () => {
     console.log(`TT Tracker running at http://localhost:${PORT}`);
