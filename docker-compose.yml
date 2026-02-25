@@ -3,27 +3,25 @@ services:
     build: .
     ports:
       - "8000:8000"
-      # Uncomment to enable HTTPS — mount a directory containing cert.pem and key.pem:
-      # - ./certs:/certs:ro
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt:ro
     environment:
       - ADMIN_PASS=CHANGE_ME       # REQUIRED — set a real password before starting
       - ADMIN_USER=admin
       - SESSION_SECRET=replace-with-a-long-random-string
       - DB_URL=http://db:3000
-      # Uncomment to enable HTTPS:
-      # - TLS_CERT=/certs/cert.pem
-      # - TLS_KEY=/certs/key.pem
+      - TLS_CERT=/etc/letsencrypt/live/h2266675.stratoserver.net/fullchain.pem
+      - TLS_KEY=/etc/letsencrypt/live/h2266675.stratoserver.net/privkey.pem
     depends_on:
       db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8000/healthz"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "--no-check-certificate", "https://localhost:8000/healthz"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 10s
     restart: unless-stopped
-
   db:
     build:
       context: .
@@ -41,7 +39,6 @@ services:
     expose:
       - "3000"
     restart: unless-stopped
-
   app-test:
     build: .
     ports:
@@ -55,7 +52,6 @@ services:
       db-test:
         condition: service_healthy
     restart: unless-stopped
-
   db-test:
     build:
       context: .
@@ -73,7 +69,6 @@ services:
     expose:
       - "3000"
     restart: unless-stopped
-
 volumes:
   tt-data:
   tt-data-test:
