@@ -154,18 +154,18 @@
 
 ## Testing
 
-- [ ] Create a test suite for existing features
+- [x] Create a test suite for existing features
 
 ## Security Hardening
 
-- [ ] Add `SameSite: 'Strict'` to session cookie
-- [ ] Add security headers (X-Frame-Options, X-Content-Type-Options, CSP)
-- [ ] Add HSTS header when TLS is enabled
-- [ ] Add rate limiting on login endpoint
-- [ ] Add CSRF protection on state-changing endpoints
-- [ ] Add request body size limits to `express.json()` / `express.urlencoded()`
-- [ ] Add authentication between app and db-service
-- [ ] Return generic error messages in db-service (don't leak `e.message`)
-- [ ] Add input length validation on match notes
-- [ ] Log failed login attempts
-- [ ] Move hardcoded credentials out of docker-compose.yml into `.env`
+- [x] Add `SameSite: 'Strict'` to session cookie
+- [x] Add security headers (X-Frame-Options, X-Content-Type-Options, CSP)
+- [x] Add HSTS header when TLS is enabled
+- [x] Add rate limiting on login endpoint
+- [x] Add CSRF protection on state-changing endpoints
+- [x] Add request body size limits to `express.json()` / `express.urlencoded()`
+- [x] Add authentication between app and db-service
+- [x] Return generic error messages in db-service (don't leak `e.message`)
+- [x] Add input length validation on match notes
+- [x] Log failed login attempts
+- [x] Move hardcoded credentials out of docker-compose.yml into `.env`

@@ -58,12 +58,16 @@ const USERS = [
 const PORT = process.env.PORT || 8000;
 const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
 const DB_URL = process.env.DB_URL || 'http://db:3000';
+const DB_TOKEN = process.env.DB_TOKEN || '';
 const TLS_CERT = process.env.TLS_CERT;
 const TLS_KEY = process.env.TLS_KEY;
 
 // ─── DB CLIENT ────────────────────────────────────────────────────────────────
+const dbHeaders = DB_TOKEN ? { 'Authorization': `Bearer ${DB_TOKEN}` } : {};
+
 async function dbFetch(path, options) {
-  const res = await fetch(`${DB_URL}${path}`, options);
+  const opts = { ...options, headers: { ...dbHeaders, ...options?.headers } };
+  const res = await fetch(`${DB_URL}${path}`, opts);
   const body = await res.json();
   if (!res.ok) {
     const err = new Error(body.error || `DB service error ${res.status}`);
@@ -76,14 +80,62 @@ async function dbFetch(path, options) {
 // ─── EXPRESS APP ──────────────────────────────────────────────────────────────
 const app = express();
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+app.use(express.json({ limit: '100kb' }));
+app.use(express.urlencoded({ extended: false, limit: '100kb' }));
+
+// ─── SECURITY HEADERS ────────────────────────────────────────────────────────
+app.use((req, res, next) => {
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Content-Security-Policy', "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'");
+  if (TLS_CERT && TLS_KEY) {
+    res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains');
+  }
+  next();
+});
 app.use(session({
   secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
-  cookie: { httpOnly: true, secure: !!(TLS_CERT && TLS_KEY), maxAge: 7 * 24 * 60 * 60 * 1000 } // 7 days
+  cookie: { httpOnly: true, secure: !!(TLS_CERT && TLS_KEY), sameSite: 'strict', maxAge: 7 * 24 * 60 * 60 * 1000 } // 7 days
 }));
+
+// ─── LOGIN RATE LIMITING ──────────────────────────────────────────────────────
+const loginAttempts = new Map(); // ip -> { count, resetAt }
+const RATE_LIMIT_WINDOW = 15 * 60 * 1000; // 15 minutes
+const RATE_LIMIT_MAX = 10; // max attempts per window
+
+function checkLoginRateLimit(ip) {
+  const now = Date.now();
+  const entry = loginAttempts.get(ip);
+  if (!entry || now > entry.resetAt) {
+    loginAttempts.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW });
+    return true;
+  }
+  entry.count++;
+  return entry.count <= RATE_LIMIT_MAX;
+}
+
+// Clean up stale entries every 15 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of loginAttempts) {
+    if (now > entry.resetAt) loginAttempts.delete(ip);
+  }
+}, RATE_LIMIT_WINDOW).unref();
+
+// ─── CSRF PROTECTION ──────────────────────────────────────────────────────────
+app.use((req, res, next) => {
+  if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') return next();
+  const origin = req.get('origin') || req.get('referer');
+  if (!origin) return next(); // Allow non-browser clients (curl, tests)
+  try {
+    const url = new URL(origin);
+    const host = req.get('host');
+    if (url.host === host) return next();
+  } catch {}
+  res.status(403).json({ error: 'Forbidden' });
+});
 
 // ─── AUTH MIDDLEWARE ───────────────────────────────────────────────────────────
 function requireAuth(req, res, next) {
@@ -183,8 +235,16 @@ app.get('/login', (req, res) => {
 });
 
 app.post('/login', (req, res) => {
+  const clientIp = req.ip || req.socket.remoteAddress;
+  if (!checkLoginRateLimit(clientIp)) {
+    console.warn(`Rate-limited login attempt from ${clientIp}`);
+    return res.status(429).send(loginHTML.replace('{{ERROR}}',
+      '<div class="error">Too many login attempts. Please try again later.</div>'));
+  }
+
   const { username, password } = req.body;
   if (typeof username !== 'string' || typeof password !== 'string') {
+    console.warn(`Failed login from ${clientIp}: missing fields`);
     return res.send(loginHTML.replace('{{ERROR}}',
       '<div class="error">Invalid username or password</div>'));
   }
@@ -196,6 +256,7 @@ app.post('/login', (req, res) => {
     return verifyPassword(password, u.password);
   });
   if (!user) {
+    console.warn(`Failed login from ${clientIp}: user="${username}"`);
     return res.send(loginHTML.replace('{{ERROR}}',
       '<div class="error">Invalid username or password</div>'));
   }
@@ -305,6 +366,9 @@ app.post('/api/matches', requireAuth, async (req, res) => {
     }
   }
 
+  const trimmedNote = (note || '').trim();
+  if (trimmedNote.length > 500) return res.status(400).json({ error: 'Note too long (max 500 chars)' });
+
   const winnerId = determineWinner(sets, player1Id, player2Id);
 
   try {
@@ -317,7 +381,7 @@ app.post('/api/matches', requireAuth, async (req, res) => {
         player2_id: player2Id,
         sets: JSON.stringify(sets),
         winner_id: winnerId,
-        note: (note || '').trim(),
+        note: trimmedNote,
       }),
     });
     res.json(dbToMatch(match));

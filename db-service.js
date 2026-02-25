@@ -6,6 +6,7 @@ const path = require('path');
 
 const PORT = process.env.PORT || 3000;
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'data.db');
+const DB_TOKEN = process.env.DB_TOKEN || '';
 
 // ─── DATABASE ─────────────────────────────────────────────────────────────────
 const db = new Database(DB_PATH);
@@ -50,7 +51,17 @@ function generateId(prefix) {
 
 // ─── EXPRESS APP ──────────────────────────────────────────────────────────────
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '100kb' }));
+
+// ─── AUTH MIDDLEWARE ──────────────────────────────────────────────────────────
+if (DB_TOKEN) {
+  app.use((req, res, next) => {
+    if (req.path === '/healthz') return next();
+    const auth = req.get('authorization');
+    if (auth === `Bearer ${DB_TOKEN}`) return next();
+    res.status(401).json({ error: 'Unauthorized' });
+  });
+}
 
 // ─── HEALTH CHECK ─────────────────────────────────────────────────────────────
 app.get('/healthz', (req, res) => {
@@ -76,7 +87,8 @@ app.post('/players', (req, res) => {
     res.json(stmts.getPlayer.get(id));
   } catch (e) {
     if (e.message.includes('UNIQUE')) return res.status(409).json({ error: 'UNIQUE constraint' });
-    res.status(500).json({ error: e.message });
+    console.error('Insert player error:', e.message);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -113,7 +125,8 @@ app.post('/matches', (req, res) => {
     stmts.insertMatch.run(id, date, player1_id, player2_id, sets, winner_id, note || '');
     res.json(stmts.getMatch.get(id));
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    console.error('Insert match error:', e.message);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

@@ -5,6 +5,7 @@ const http = require('http');
 const path = require('path');
 
 const ROOT = path.join(__dirname, '..', '..');
+const TEST_DB_TOKEN = 'test-db-token';
 
 function getRandomPort() {
   return 10000 + Math.floor(Math.random() * 50000);
@@ -34,7 +35,7 @@ function waitForReady(port, timeoutMs = 10000) {
 async function startDbService() {
   const port = getRandomPort();
   const proc = spawn(process.execPath, [path.join(ROOT, 'db-service.js')], {
-    env: { ...process.env, PORT: String(port), DB_PATH: ':memory:' },
+    env: { ...process.env, PORT: String(port), DB_PATH: ':memory:', DB_TOKEN: TEST_DB_TOKEN },
     stdio: ['pipe', 'pipe', 'pipe'],
   });
 
@@ -61,6 +62,7 @@ async function startServer(dbUrl) {
       ADMIN_USER: 'admin',
       ADMIN_PASS: 'testpass123',
       SESSION_SECRET: 'test-secret',
+      DB_TOKEN: TEST_DB_TOKEN,
     },
     stdio: ['pipe', 'pipe', 'pipe'],
   });
@@ -95,4 +97,4 @@ function kill(proc) {
   }
 }
 
-module.exports = { startDbService, startServer, login, kill };
+module.exports = { startDbService, startServer, login, kill, TEST_DB_TOKEN };

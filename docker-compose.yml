@@ -6,12 +6,13 @@ services:
     volumes:
       - /etc/letsencrypt:/etc/letsencrypt:ro
     environment:
-      - ADMIN_PASS=CHANGE_ME       # REQUIRED — set a real password before starting
-      - ADMIN_USER=admin
-      - SESSION_SECRET=replace-with-a-long-random-string
+      - ADMIN_PASS=${ADMIN_PASS:?Set ADMIN_PASS in .env}
+      - ADMIN_USER=${ADMIN_USER:-admin}
+      - SESSION_SECRET=${SESSION_SECRET:?Set SESSION_SECRET in .env}
+      - DB_TOKEN=${DB_TOKEN:-}
       - DB_URL=http://db:3000
-      - TLS_CERT=/etc/letsencrypt/live/h2266675.stratoserver.net/fullchain.pem
-      - TLS_KEY=/etc/letsencrypt/live/h2266675.stratoserver.net/privkey.pem
+      - TLS_CERT=${TLS_CERT:-}
+      - TLS_KEY=${TLS_KEY:-}
     depends_on:
       db:
         condition: service_healthy
@@ -30,6 +31,7 @@ services:
       - tt-data:/data
     environment:
       - DB_PATH=/data/data.db
+      - DB_TOKEN=${DB_TOKEN:-}
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/healthz"]
       interval: 10s
@@ -44,9 +46,10 @@ services:
     ports:
       - "8001:8000"
     environment:
-      - ADMIN_PASS=CHANGE_ME
+      - ADMIN_PASS=testpass
       - ADMIN_USER=admin
       - SESSION_SECRET=test-secret
+      - DB_TOKEN=test-token
       - DB_URL=http://db-test:3000
     depends_on:
       db-test:
@@ -66,6 +69,7 @@ services:
       - tt-data-test:/data
     environment:
       - DB_PATH=/data/data.db
+      - DB_TOKEN=test-token
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/healthz"]
       interval: 10s
