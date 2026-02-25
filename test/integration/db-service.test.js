@@ -187,4 +187,112 @@ describe('db-service', () => {
       assert.equal(matches.length, 0);
     });
   });
+
+  // ── Users CRUD ─────────────────────────────────────────────────────────────
+  describe('users', () => {
+    let userId;
+
+    it('GET /users/count returns 0 initially', async () => {
+      const res = await dbFetch('/users/count');
+      const body = await res.json();
+      assert.equal(res.status, 200);
+      assert.equal(body.count, 0);
+    });
+
+    it('POST /users creates a user', async () => {
+      const res = await dbFetch('/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: 'testadmin', password: 'hashed:pw', role: 'admin' }),
+      });
+      const body = await res.json();
+      assert.equal(res.status, 200);
+      assert.ok(body.id);
+      assert.equal(body.username, 'testadmin');
+      assert.equal(body.role, 'admin');
+      assert.ok(!body.password, 'password should not be in response');
+      userId = body.id;
+    });
+
+    it('GET /users lists users (without password)', async () => {
+      const res = await dbFetch('/users');
+      const body = await res.json();
+      assert.equal(res.status, 200);
+      assert.ok(body.length >= 1);
+      assert.ok(!body[0].password, 'password should not be in list');
+    });
+
+    it('GET /users/by-username/:username returns user (with password for auth)', async () => {
+      const res = await dbFetch('/users/by-username/testadmin');
+      const body = await res.json();
+      assert.equal(res.status, 200);
+      assert.equal(body.username, 'testadmin');
+      assert.ok(body.password, 'by-username should include password for auth');
+    });
+
+    it('GET /users/by-username/:username is case-insensitive', async () => {
+      const res = await dbFetch('/users/by-username/TestAdmin');
+      assert.equal(res.status, 200);
+    });
+
+    it('GET /users/by-username/:username returns 404 for non-existent', async () => {
+      const res = await dbFetch('/users/by-username/nobody');
+      assert.equal(res.status, 404);
+    });
+
+    it('POST /users rejects duplicate username (409)', async () => {
+      const res = await dbFetch('/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: 'testadmin', password: 'hash2', role: 'user' }),
+      });
+      assert.equal(res.status, 409);
+    });
+
+    it('GET /users/count returns 1', async () => {
+      const res = await dbFetch('/users/count');
+      const body = await res.json();
+      assert.equal(body.count, 1);
+    });
+
+    it('PUT /users/:id/password updates password', async () => {
+      const res = await dbFetch(`/users/${userId}/password`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: 'newhash:pw' }),
+      });
+      assert.equal(res.status, 200);
+      const body = await res.json();
+      assert.equal(body.ok, true);
+
+      // Verify password changed
+      const userRes = await dbFetch(`/users/by-username/testadmin`);
+      const user = await userRes.json();
+      assert.equal(user.password, 'newhash:pw');
+    });
+
+    it('DELETE /users/:id deletes a user', async () => {
+      // Create a user to delete
+      const createRes = await dbFetch('/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: 'todelete', password: 'hash', role: 'user' }),
+      });
+      const created = await createRes.json();
+
+      const res = await dbFetch(`/users/${created.id}`, { method: 'DELETE' });
+      assert.equal(res.status, 200);
+      const body = await res.json();
+      assert.equal(body.ok, true);
+
+      // Verify deleted
+      const lookupRes = await dbFetch(`/users/by-username/todelete`);
+      assert.equal(lookupRes.status, 404);
+    });
+
+    it('DELETE /users/:id returns 404 for non-existent', async () => {
+      const res = await dbFetch('/users/no_such_id', { method: 'DELETE' });
+      assert.equal(res.status, 404);
+    });
+  });
 });

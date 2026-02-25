@@ -91,10 +91,19 @@ async function login(baseUrl, username = 'admin', password = 'testpass123') {
   return cookie;
 }
 
+async function createUser(baseUrl, adminCookie, { username, password, role }) {
+  const res = await fetch(`${baseUrl}/api/users`, {
+    method: 'POST',
+    headers: { Cookie: adminCookie, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password, role: role || 'user' }),
+  });
+  return res.json();
+}
+
 function kill(proc) {
   if (proc && !proc.killed) {
     proc.kill('SIGTERM');
   }
 }
 
-module.exports = { startDbService, startServer, login, kill, TEST_DB_TOKEN };
+module.exports = { startDbService, startServer, login, createUser, kill, TEST_DB_TOKEN };

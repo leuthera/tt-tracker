@@ -2,7 +2,7 @@
 
 const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert/strict');
-const { startDbService, startServer, login, kill } = require('../helpers/setup');
+const { startDbService, startServer, login, createUser, kill } = require('../helpers/setup');
 
 describe('auth', () => {
   let db, server;
@@ -87,5 +87,218 @@ describe('auth', () => {
     const res = await fetch(`${server.url}/`, { redirect: 'manual' });
     assert.equal(res.status, 302);
     assert.equal(res.headers.get('location'), '/login');
+  });
+
+  // ── Version endpoint ────────────────────────────────────────────────────────
+  it('GET /api/version returns sha (no auth needed)', async () => {
+    const res = await fetch(`${server.url}/api/version`);
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.sha, 'dev');
+  });
+
+  // ── Current user info ───────────────────────────────────────────────────────
+  it('GET /api/me returns current user info', async () => {
+    const cookie = await login(server.url);
+    const res = await fetch(`${server.url}/api/me`, {
+      headers: { Cookie: cookie },
+    });
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.username, 'admin');
+    assert.equal(body.role, 'admin');
+    assert.ok(body.userId);
+  });
+
+  // ── Role-based access ──────────────────────────────────────────────────────
+  describe('role-based access', () => {
+    let adminCookie, userCookie;
+
+    before(async () => {
+      adminCookie = await login(server.url);
+      await createUser(server.url, adminCookie, {
+        username: 'regular',
+        password: 'userpass123',
+        role: 'user',
+      });
+      userCookie = await login(server.url, 'regular', 'userpass123');
+    });
+
+    it('regular user can log in', async () => {
+      assert.ok(userCookie, 'user cookie should be set');
+      const res = await fetch(`${server.url}/api/me`, {
+        headers: { Cookie: userCookie },
+      });
+      const body = await res.json();
+      assert.equal(body.username, 'regular');
+      assert.equal(body.role, 'user');
+    });
+
+    it('regular user can access players/matches', async () => {
+      const res = await fetch(`${server.url}/api/players`, {
+        headers: { Cookie: userCookie },
+      });
+      assert.equal(res.status, 200);
+    });
+
+    it('regular user gets 403 on DELETE /api/players/:id', async () => {
+      const res = await fetch(`${server.url}/api/players/fake_id`, {
+        method: 'DELETE',
+        headers: { Cookie: userCookie },
+      });
+      assert.equal(res.status, 403);
+    });
+
+    it('regular user gets 403 on DELETE /api/matches/:id', async () => {
+      const res = await fetch(`${server.url}/api/matches/fake_id`, {
+        method: 'DELETE',
+        headers: { Cookie: userCookie },
+      });
+      assert.equal(res.status, 403);
+    });
+
+    it('regular user gets 403 on GET /api/users', async () => {
+      const res = await fetch(`${server.url}/api/users`, {
+        headers: { Cookie: userCookie },
+      });
+      assert.equal(res.status, 403);
+    });
+
+    it('regular user gets 403 on POST /api/users', async () => {
+      const res = await fetch(`${server.url}/api/users`, {
+        method: 'POST',
+        headers: { Cookie: userCookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: 'hack', password: 'hack1234' }),
+      });
+      assert.equal(res.status, 403);
+    });
+
+    it('regular user can change own password', async () => {
+      const res = await fetch(`${server.url}/api/me/password`, {
+        method: 'PUT',
+        headers: { Cookie: userCookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword: 'userpass123', newPassword: 'newpass456' }),
+      });
+      assert.equal(res.status, 200);
+
+      // Can log in with new password
+      const newCookie = await login(server.url, 'regular', 'newpass456');
+      assert.ok(newCookie);
+
+      // Restore original password for other tests
+      const res2 = await fetch(`${server.url}/api/me/password`, {
+        method: 'PUT',
+        headers: { Cookie: newCookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword: 'newpass456', newPassword: 'userpass123' }),
+      });
+      assert.equal(res2.status, 200);
+    });
+
+    it('change own password rejects wrong current password', async () => {
+      const res = await fetch(`${server.url}/api/me/password`, {
+        method: 'PUT',
+        headers: { Cookie: userCookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword: 'wrong', newPassword: 'newpass456' }),
+      });
+      assert.equal(res.status, 403);
+    });
+  });
+
+  // ── Admin user management ─────────────────────────────────────────────────
+  describe('admin user management', () => {
+    let adminCookie, createdUserId;
+
+    before(async () => {
+      adminCookie = await login(server.url);
+    });
+
+    it('admin can list users', async () => {
+      const res = await fetch(`${server.url}/api/users`, {
+        headers: { Cookie: adminCookie },
+      });
+      assert.equal(res.status, 200);
+      const body = await res.json();
+      assert.ok(body.length >= 1);
+      assert.ok(body[0].username);
+      assert.ok(!body[0].password, 'password should not be exposed');
+    });
+
+    it('admin can create a user', async () => {
+      const res = await fetch(`${server.url}/api/users`, {
+        method: 'POST',
+        headers: { Cookie: adminCookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: 'newuser', password: 'pass1234', role: 'user' }),
+      });
+      assert.equal(res.status, 200);
+      const body = await res.json();
+      assert.equal(body.username, 'newuser');
+      assert.equal(body.role, 'user');
+      createdUserId = body.id;
+    });
+
+    it('admin can reset user password', async () => {
+      const res = await fetch(`${server.url}/api/users/${createdUserId}/password`, {
+        method: 'PUT',
+        headers: { Cookie: adminCookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: 'reset1234' }),
+      });
+      assert.equal(res.status, 200);
+
+      // New user can log in with reset password
+      const cookie = await login(server.url, 'newuser', 'reset1234');
+      assert.ok(cookie);
+    });
+
+    it('admin cannot delete self', async () => {
+      const meRes = await fetch(`${server.url}/api/me`, {
+        headers: { Cookie: adminCookie },
+      });
+      const me = await meRes.json();
+
+      const res = await fetch(`${server.url}/api/users/${me.userId}`, {
+        method: 'DELETE',
+        headers: { Cookie: adminCookie },
+      });
+      assert.equal(res.status, 400);
+      const body = await res.json();
+      assert.ok(body.error.includes('own account'));
+    });
+
+    it('admin can delete a user', async () => {
+      const res = await fetch(`${server.url}/api/users/${createdUserId}`, {
+        method: 'DELETE',
+        headers: { Cookie: adminCookie },
+      });
+      assert.equal(res.status, 200);
+
+      // Deleted user cannot log in — should not get a redirect (302 = success)
+      const loginRes = await fetch(`${server.url}/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'username=newuser&password=reset1234',
+        redirect: 'manual',
+      });
+      assert.notEqual(loginRes.status, 302, 'Deleted user login should not redirect');
+    });
+
+    it('rejects duplicate username', async () => {
+      const res = await fetch(`${server.url}/api/users`, {
+        method: 'POST',
+        headers: { Cookie: adminCookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: 'admin', password: 'test1234' }),
+      });
+      assert.equal(res.status, 400);
+      const body = await res.json();
+      assert.ok(body.error.includes('already exists'));
+    });
+
+    it('rejects short password', async () => {
+      const res = await fetch(`${server.url}/api/users`, {
+        method: 'POST',
+        headers: { Cookie: adminCookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: 'shortpw', password: 'ab' }),
+      });
+      assert.equal(res.status, 400);
+    });
   });
 });

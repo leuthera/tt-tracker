@@ -2,15 +2,18 @@
 
 const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert/strict');
-const { startDbService, startServer, login, kill } = require('../helpers/setup');
+const { startDbService, startServer, login, createUser, kill } = require('../helpers/setup');
 
 describe('players API', () => {
-  let db, server, cookie;
+  let db, server, cookie, userCookie;
 
   before(async () => {
     db = await startDbService();
     server = await startServer(db.url);
     cookie = await login(server.url);
+    // Create a regular user
+    await createUser(server.url, cookie, { username: 'player_tester', password: 'testpass123', role: 'user' });
+    userCookie = await login(server.url, 'player_tester', 'testpass123');
   });
 
   after(() => {
@@ -121,5 +124,20 @@ describe('players API', () => {
 
     const res = await api(`/api/players/${p1.id}?force=true`, { method: 'DELETE' });
     assert.equal(res.status, 200);
+  });
+
+  it('non-admin gets 403 on DELETE player', async () => {
+    // Create a player to attempt delete
+    const createRes = await apiJson('/api/players', {
+      method: 'POST',
+      body: JSON.stringify({ name: 'NoDeleteForUser' }),
+    });
+    const player = await createRes.json();
+
+    const res = await fetch(`${server.url}/api/players/${player.id}`, {
+      method: 'DELETE',
+      headers: { Cookie: userCookie },
+    });
+    assert.equal(res.status, 403);
   });
 });

@@ -29,6 +29,14 @@ db.exec(`
     FOREIGN KEY (player1_id) REFERENCES players(id),
     FOREIGN KEY (player2_id) REFERENCES players(id)
   );
+
+  CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    username TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    password TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'user',
+    created_at INTEGER NOT NULL
+  );
 `);
 
 const stmts = {
@@ -43,6 +51,14 @@ const stmts = {
   getMatchesByPlayer: db.prepare('SELECT * FROM matches WHERE player1_id = ? OR player2_id = ? ORDER BY date DESC'),
   insertMatch:        db.prepare('INSERT INTO matches (id, date, player1_id, player2_id, sets, winner_id, note) VALUES (?, ?, ?, ?, ?, ?, ?)'),
   deleteMatch:        db.prepare('DELETE FROM matches WHERE id = ?'),
+  // Users
+  getUsers:           db.prepare('SELECT id, username, role, created_at FROM users ORDER BY created_at'),
+  getUser:            db.prepare('SELECT * FROM users WHERE id = ?'),
+  getUserByUsername:   db.prepare('SELECT * FROM users WHERE username = ? COLLATE NOCASE'),
+  insertUser:         db.prepare('INSERT INTO users (id, username, password, role, created_at) VALUES (?, ?, ?, ?, ?)'),
+  updateUserPassword: db.prepare('UPDATE users SET password = ? WHERE id = ?'),
+  deleteUser:         db.prepare('DELETE FROM users WHERE id = ?'),
+  countUsers:         db.prepare('SELECT COUNT(*) as count FROM users'),
 };
 
 function generateId(prefix) {
@@ -132,6 +148,50 @@ app.post('/matches', (req, res) => {
 
 app.delete('/matches/:id', (req, res) => {
   stmts.deleteMatch.run(req.params.id);
+  res.json({ ok: true });
+});
+
+// ─── USERS ───────────────────────────────────────────────────────────────────
+app.get('/users', (req, res) => {
+  res.json(stmts.getUsers.all());
+});
+
+app.get('/users/count', (req, res) => {
+  res.json(stmts.countUsers.get());
+});
+
+app.get('/users/by-username/:username', (req, res) => {
+  const row = stmts.getUserByUsername.get(req.params.username);
+  if (!row) return res.status(404).json({ error: 'User not found' });
+  res.json(row);
+});
+
+app.post('/users', (req, res) => {
+  const { username, password, role } = req.body;
+  const id = generateId('u');
+  try {
+    stmts.insertUser.run(id, username, password, role || 'user', Date.now());
+    const user = stmts.getUser.get(id);
+    res.json({ id: user.id, username: user.username, role: user.role, created_at: user.created_at });
+  } catch (e) {
+    if (e.message.includes('UNIQUE')) return res.status(409).json({ error: 'UNIQUE constraint' });
+    console.error('Insert user error:', e.message);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.put('/users/:id/password', (req, res) => {
+  const { password } = req.body;
+  const user = stmts.getUser.get(req.params.id);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  stmts.updateUserPassword.run(password, req.params.id);
+  res.json({ ok: true });
+});
+
+app.delete('/users/:id', (req, res) => {
+  const user = stmts.getUser.get(req.params.id);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  stmts.deleteUser.run(req.params.id);
   res.json({ ok: true });
 });
 

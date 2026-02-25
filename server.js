@@ -43,18 +43,12 @@ const net = require('net');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
-const { hashPassword, verifyPassword, dbToPlayer, dbToMatch, countSetWins, determineWinner } = require('./lib/helpers');
+const { hashPassword, verifyPassword, dbToPlayer, dbToMatch, dbToUser, countSetWins, determineWinner } = require('./lib/helpers');
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const ADMIN_USER = process.env.ADMIN_USER || 'admin';
 const ADMIN_PASS = process.env.ADMIN_PASS;
-if (!ADMIN_PASS) {
-  console.error('ERROR: ADMIN_PASS environment variable is required');
-  process.exit(1);
-}
-const USERS = [
-  { username: ADMIN_USER, password: hashPassword(ADMIN_PASS) }
-];
+const BUILD_SHA = process.env.BUILD_SHA || 'dev';
 const PORT = process.env.PORT || 8000;
 const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
 const DB_URL = process.env.DB_URL || 'http://db:3000';
@@ -142,6 +136,11 @@ function requireAuth(req, res, next) {
   if (req.session && req.session.loggedIn) return next();
   if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Not authenticated' });
   res.redirect('/login');
+}
+
+function requireAdmin(req, res, next) {
+  if (req.session && req.session.role === 'admin') return next();
+  return res.status(403).json({ error: 'Admin access required' });
 }
 
 // ─── LOGIN PAGE ────────────────────────────────────────────────────────────────
@@ -234,7 +233,7 @@ app.get('/login', (req, res) => {
   res.send(loginHTML.replace('{{ERROR}}', ''));
 });
 
-app.post('/login', (req, res) => {
+app.post('/login', async (req, res) => {
   const clientIp = req.ip || req.socket.remoteAddress;
   if (!checkLoginRateLimit(clientIp)) {
     console.warn(`Rate-limited login attempt from ${clientIp}`);
@@ -248,21 +247,24 @@ app.post('/login', (req, res) => {
     return res.send(loginHTML.replace('{{ERROR}}',
       '<div class="error">Invalid username or password</div>'));
   }
-  // Constant-time comparison to prevent timing attacks
-  const user = USERS.find(u => {
-    const uBuf = Buffer.from(u.username);
-    const inputUBuf = Buffer.from(username);
-    if (uBuf.length !== inputUBuf.length || !crypto.timingSafeEqual(uBuf, inputUBuf)) return false;
-    return verifyPassword(password, u.password);
-  });
-  if (!user) {
+
+  try {
+    const user = await dbFetch(`/users/by-username/${encodeURIComponent(username)}`);
+    if (!verifyPassword(password, user.password)) {
+      console.warn(`Failed login from ${clientIp}: user="${username}"`);
+      return res.send(loginHTML.replace('{{ERROR}}',
+        '<div class="error">Invalid username or password</div>'));
+    }
+    req.session.loggedIn = true;
+    req.session.userId = user.id;
+    req.session.username = user.username;
+    req.session.role = user.role;
+    res.redirect('/');
+  } catch (e) {
     console.warn(`Failed login from ${clientIp}: user="${username}"`);
     return res.send(loginHTML.replace('{{ERROR}}',
       '<div class="error">Invalid username or password</div>'));
   }
-  req.session.loggedIn = true;
-  req.session.username = username;
-  res.redirect('/');
 });
 
 app.post('/logout', (req, res) => {
@@ -272,6 +274,11 @@ app.post('/logout', (req, res) => {
 // ─── HEALTH CHECK ─────────────────────────────────────────────────────────────
 app.get('/healthz', (req, res) => {
   res.json({ status: 'ok' });
+});
+
+// ─── VERSION ──────────────────────────────────────────────────────────────────
+app.get('/api/version', (req, res) => {
+  res.json({ sha: BUILD_SHA });
 });
 
 // ─── PWA STATIC FILES (before auth) ──────────────────────────────────────────
@@ -314,7 +321,7 @@ app.post('/api/players', requireAuth, async (req, res) => {
   }
 });
 
-app.delete('/api/players/:id', requireAuth, async (req, res) => {
+app.delete('/api/players/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
     const force = req.query.force === 'true' ? '?force=true' : '';
     const result = await dbFetch(`/players/${req.params.id}${force}`, { method: 'DELETE' });
@@ -390,7 +397,7 @@ app.post('/api/matches', requireAuth, async (req, res) => {
   }
 });
 
-app.delete('/api/matches/:id', requireAuth, async (req, res) => {
+app.delete('/api/matches/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
     const result = await dbFetch(`/matches/${req.params.id}`, { method: 'DELETE' });
     res.json(result);
@@ -399,39 +406,157 @@ app.delete('/api/matches/:id', requireAuth, async (req, res) => {
   }
 });
 
-// ─── START ────────────────────────────────────────────────────────────────────
-if (TLS_CERT && TLS_KEY) {
-  const tlsOptions = {
-    cert: fs.readFileSync(TLS_CERT),
-    key: fs.readFileSync(TLS_KEY),
-  };
-  const httpsServer = https.createServer(tlsOptions, app);
-  const httpRedirect = http.createServer((req, res) => {
-    const host = (req.headers.host || '').replace(/:\d+$/, '');
-    const port = PORT == 443 ? '' : `:${PORT}`;
-    res.writeHead(301, { Location: `https://${host}${port}${req.url}` });
-    res.end();
-  });
+// ─── API: CURRENT USER ────────────────────────────────────────────────────────
+app.get('/api/me', requireAuth, (req, res) => {
+  res.json({ userId: req.session.userId, username: req.session.username, role: req.session.role });
+});
 
-  // Multiplex HTTP/HTTPS on the same port — peek at the first byte
-  // to distinguish TLS handshakes (0x16) from plain HTTP
-  net.createServer(socket => {
-    socket.once('data', buf => {
-      socket.pause();
-      socket.unshift(buf);
-      (buf[0] === 0x16 ? httpsServer : httpRedirect).emit('connection', socket);
-      process.nextTick(() => socket.resume());
+app.put('/api/me/password', requireAuth, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Current and new password required' });
+  if (typeof newPassword !== 'string' || newPassword.length < 4) return res.status(400).json({ error: 'Password must be at least 4 characters' });
+
+  try {
+    const user = await dbFetch(`/users/by-username/${encodeURIComponent(req.session.username)}`);
+    if (!verifyPassword(currentPassword, user.password)) {
+      return res.status(403).json({ error: 'Current password is incorrect' });
+    }
+    const hashed = hashPassword(newPassword);
+    await dbFetch(`/users/${user.id}/password`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: hashed }),
     });
-  }).listen(PORT, () => {
-    console.log(`TT Tracker running at https://localhost:${PORT}`);
-    console.log(`HTTP on port ${PORT} redirects to HTTPS`);
-    console.log(`Login: ${ADMIN_USER}`);
-    console.log(`DB service: ${DB_URL}`);
-  });
-} else {
-  app.listen(PORT, () => {
-    console.log(`TT Tracker running at http://localhost:${PORT}`);
-    console.log(`Login: ${ADMIN_USER}`);
-    console.log(`DB service: ${DB_URL}`);
-  });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to change password' });
+  }
+});
+
+// ─── API: USER MANAGEMENT (admin only) ───────────────────────────────────────
+app.get('/api/users', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const rows = await dbFetch('/users');
+    res.json(rows.map(dbToUser));
+  } catch (e) {
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+app.post('/api/users', requireAuth, requireAdmin, async (req, res) => {
+  const { username, password, role } = req.body;
+  if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
+  if (typeof username !== 'string' || username.trim().length === 0) return res.status(400).json({ error: 'Username cannot be empty' });
+  if (username.length > 30) return res.status(400).json({ error: 'Username too long (max 30 chars)' });
+  if (typeof password !== 'string' || password.length < 4) return res.status(400).json({ error: 'Password must be at least 4 characters' });
+  const userRole = role === 'admin' ? 'admin' : 'user';
+
+  try {
+    const hashed = hashPassword(password);
+    const user = await dbFetch('/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: username.trim(), password: hashed, role: userRole }),
+    });
+    res.json(dbToUser(user));
+  } catch (e) {
+    if (e.status === 409) return res.status(400).json({ error: 'A user with this username already exists' });
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+app.put('/api/users/:id/password', requireAuth, requireAdmin, async (req, res) => {
+  const { password } = req.body;
+  if (!password || typeof password !== 'string' || password.length < 4) {
+    return res.status(400).json({ error: 'Password must be at least 4 characters' });
+  }
+  try {
+    const hashed = hashPassword(password);
+    await dbFetch(`/users/${req.params.id}/password`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: hashed }),
+    });
+    res.json({ ok: true });
+  } catch (e) {
+    if (e.status === 404) return res.status(404).json({ error: 'User not found' });
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+app.delete('/api/users/:id', requireAuth, requireAdmin, async (req, res) => {
+  if (req.params.id === req.session.userId) {
+    return res.status(400).json({ error: 'Cannot delete your own account' });
+  }
+  try {
+    await dbFetch(`/users/${req.params.id}`, { method: 'DELETE' });
+    res.json({ ok: true });
+  } catch (e) {
+    if (e.status === 404) return res.status(404).json({ error: 'User not found' });
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ─── ADMIN BOOTSTRAP ──────────────────────────────────────────────────────────
+async function bootstrapAdmin() {
+  try {
+    const { count } = await dbFetch('/users/count');
+    if (count === 0) {
+      if (!ADMIN_PASS) {
+        console.error('ERROR: ADMIN_PASS environment variable is required for initial admin setup');
+        process.exit(1);
+      }
+      const hashed = hashPassword(ADMIN_PASS);
+      await dbFetch('/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: ADMIN_USER, password: hashed, role: 'admin' }),
+      });
+      console.log(`Admin user "${ADMIN_USER}" created`);
+    }
+  } catch (e) {
+    console.error('Failed to bootstrap admin user:', e.message);
+    process.exit(1);
+  }
 }
+
+// ─── START ────────────────────────────────────────────────────────────────────
+async function start() {
+  await bootstrapAdmin();
+
+  if (TLS_CERT && TLS_KEY) {
+    const tlsOptions = {
+      cert: fs.readFileSync(TLS_CERT),
+      key: fs.readFileSync(TLS_KEY),
+    };
+    const httpsServer = https.createServer(tlsOptions, app);
+    const httpRedirect = http.createServer((req, res) => {
+      const host = (req.headers.host || '').replace(/:\d+$/, '');
+      const port = PORT == 443 ? '' : `:${PORT}`;
+      res.writeHead(301, { Location: `https://${host}${port}${req.url}` });
+      res.end();
+    });
+
+    // Multiplex HTTP/HTTPS on the same port — peek at the first byte
+    // to distinguish TLS handshakes (0x16) from plain HTTP
+    net.createServer(socket => {
+      socket.once('data', buf => {
+        socket.pause();
+        socket.unshift(buf);
+        (buf[0] === 0x16 ? httpsServer : httpRedirect).emit('connection', socket);
+        process.nextTick(() => socket.resume());
+      });
+    }).listen(PORT, () => {
+      console.log(`TT Tracker running at https://localhost:${PORT}`);
+      console.log(`HTTP on port ${PORT} redirects to HTTPS`);
+      console.log(`DB service: ${DB_URL}`);
+    });
+  } else {
+    app.listen(PORT, () => {
+      console.log(`TT Tracker running at http://localhost:${PORT}`);
+      console.log(`DB service: ${DB_URL}`);
+    });
+  }
+}
+
+start();

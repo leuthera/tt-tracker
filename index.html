@@ -1064,9 +1064,13 @@
 
   <!-- Header -->
   <header class="app-header">
-    <div class="app-header__title">🏓 TT Tracker</div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <div class="app-header__title">🏓 TT Tracker</div>
+      <span id="version-badge" style="font-size:10px;color:rgba(255,255,255,0.5);font-weight:400;display:none"></span>
+    </div>
     <div style="display:flex;align-items:center;gap:8px">
       <button class="theme-toggle" id="theme-toggle-btn" aria-label="Toggle dark mode">🌙</button>
+      <button id="users-btn" aria-label="Manage users" style="display:none;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:#fff;border-radius:50%;width:32px;height:32px;font-size:16px;cursor:pointer;padding:0;line-height:1">&#9881;</button>
       <form method="POST" action="/logout" style="margin:0">
         <button type="submit" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:#fff;border-radius:20px;padding:6px 14px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">Sign out</button>
       </form>
@@ -1215,7 +1219,8 @@
     matches: [],
     newMatch: { player1Id: '', player2Id: '', sets: [{p1: 11, p2: 0}], note: '' },
     historyFilter: '',
-    statsFilter: ''
+    statsFilter: '',
+    me: { role: 'user', username: '' }
   };
 
   // =============================================
@@ -1539,18 +1544,20 @@
       </div>
     `;
 
-    initSwipeToDelete(card, () => {
-      showConfirmModal('Delete this match?', async () => {
-        try {
-          await deleteMatch(match.id);
-          showToast('Match deleted', 'success');
-          if (state.currentTab === 'history') await renderHistory();
-          else renderHome();
-        } catch(e) {
-          showToast('Could not delete match', 'error');
-        }
+    if (state.me.role === 'admin') {
+      initSwipeToDelete(card, () => {
+        showConfirmModal('Delete this match?', async () => {
+          try {
+            await deleteMatch(match.id);
+            showToast('Match deleted', 'success');
+            if (state.currentTab === 'history') await renderHistory();
+            else renderHome();
+          } catch(e) {
+            showToast('Could not delete match', 'error');
+          }
+        });
       });
-    });
+    }
 
     return card;
   }
@@ -1948,9 +1955,10 @@
           <div class="h2h-section">${h2hRows}</div>
         ` : ''}
       `,
-      footerHTML: `<button class="btn btn--danger" id="modal-delete-player">Delete Player</button>`
+      footerHTML: state.me.role === 'admin' ? `<button class="btn btn--danger" id="modal-delete-player">Delete Player</button>` : ''
     });
 
+    if (state.me.role !== 'admin') return;
     document.getElementById('modal-delete-player').addEventListener('click', () => {
       hideModal();
       const hasMatches = playerMatches.length > 0;
@@ -2283,6 +2291,155 @@
   }
 
   // =============================================
+  // USER MANAGEMENT (admin only)
+  // =============================================
+  async function showUsersModal() {
+    showModal({ title: 'Manage Users', bodyHTML: '<p style="color:var(--text-muted)">Loading...</p>', footerHTML: '' });
+    try {
+      const users = await apiFetch('/api/users');
+      let html = '<div style="display:flex;flex-direction:column;gap:10px">';
+      for (const u of users) {
+        const isSelf = u.username === state.me.username;
+        html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--surface-2);border-radius:var(--radius-md)">
+          <div>
+            <div style="font-weight:600;font-size:14px">${esc(u.username)}</div>
+            <div style="font-size:12px;color:var(--text-muted)">${esc(u.role)}${isSelf ? ' (you)' : ''}</div>
+          </div>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn--secondary" style="padding:6px 10px;font-size:12px;width:auto" onclick="window._resetUserPw('${esc(u.id)}','${esc(u.username)}')">Reset pw</button>
+            ${isSelf ? '' : `<button class="btn btn--danger" style="padding:6px 10px;font-size:12px;width:auto" onclick="window._deleteUser('${esc(u.id)}','${esc(u.username)}')">Delete</button>`}
+          </div>
+        </div>`;
+      }
+      html += '</div>';
+      document.getElementById('modal-body').innerHTML = html;
+      const footer = document.getElementById('modal-footer');
+      footer.innerHTML = '<button class="btn btn--primary" id="add-user-btn">Add User</button>';
+      footer.style.display = '';
+      document.getElementById('add-user-btn').addEventListener('click', showAddUserModal);
+    } catch (e) {
+      document.getElementById('modal-body').innerHTML = '<p style="color:var(--danger)">Failed to load users</p>';
+    }
+  }
+
+  function showAddUserModal() {
+    showModal({
+      title: 'Add User',
+      bodyHTML: `
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div>
+            <label style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-muted);margin-bottom:4px">Username</label>
+            <input type="text" id="new-user-name" class="form-input" placeholder="Username" autocapitalize="off" autocomplete="off">
+          </div>
+          <div>
+            <label style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-muted);margin-bottom:4px">Password</label>
+            <input type="password" id="new-user-pass" class="form-input" placeholder="Password" autocomplete="new-password">
+          </div>
+          <div>
+            <label style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-muted);margin-bottom:4px">Role</label>
+            <select id="new-user-role" class="form-select">
+              <option value="user">User</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+        </div>
+      `,
+      footerHTML: `
+        <button class="btn btn--primary" id="create-user-btn">Create</button>
+        <button class="btn btn--secondary" id="back-to-users-btn">Back</button>
+      `
+    });
+    document.getElementById('create-user-btn').addEventListener('click', async () => {
+      const username = document.getElementById('new-user-name').value.trim();
+      const password = document.getElementById('new-user-pass').value;
+      const role = document.getElementById('new-user-role').value;
+      if (!username || !password) return showToast('Username and password required', 'error');
+      if (password.length < 4) return showToast('Password must be at least 4 characters', 'error');
+      try {
+        await apiFetch('/api/users', { method: 'POST', body: JSON.stringify({ username, password, role }) });
+        showToast('User created', 'success');
+        showUsersModal();
+      } catch (e) {
+        showToast(e.message, 'error');
+      }
+    });
+    document.getElementById('back-to-users-btn').addEventListener('click', showUsersModal);
+  }
+
+  window._resetUserPw = function(userId, username) {
+    showModal({
+      title: 'Reset Password',
+      bodyHTML: `
+        <p style="font-size:14px;color:var(--text-muted);margin-bottom:12px">New password for <strong>${esc(username)}</strong></p>
+        <input type="password" id="reset-pw-input" class="form-input" placeholder="New password" autocomplete="new-password">
+      `,
+      footerHTML: `
+        <button class="btn btn--primary" id="reset-pw-btn">Reset Password</button>
+        <button class="btn btn--secondary" id="back-to-users-btn2">Back</button>
+      `
+    });
+    document.getElementById('reset-pw-btn').addEventListener('click', async () => {
+      const password = document.getElementById('reset-pw-input').value;
+      if (!password || password.length < 4) return showToast('Password must be at least 4 characters', 'error');
+      try {
+        await apiFetch(`/api/users/${userId}/password`, { method: 'PUT', body: JSON.stringify({ password }) });
+        showToast('Password reset', 'success');
+        showUsersModal();
+      } catch (e) {
+        showToast(e.message, 'error');
+      }
+    });
+    document.getElementById('back-to-users-btn2').addEventListener('click', showUsersModal);
+  };
+
+  window._deleteUser = function(userId, username) {
+    showConfirmModal(`Delete user "${username}"? This cannot be undone.`, async () => {
+      try {
+        await apiFetch(`/api/users/${userId}`, { method: 'DELETE' });
+        showToast('User deleted', 'success');
+        showUsersModal();
+      } catch (e) {
+        showToast(e.message, 'error');
+      }
+    });
+  };
+
+  // =============================================
+  // CHANGE OWN PASSWORD
+  // =============================================
+  function showChangePasswordModal() {
+    showModal({
+      title: 'Change Password',
+      bodyHTML: `
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div>
+            <label style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-muted);margin-bottom:4px">Current Password</label>
+            <input type="password" id="cur-pw-input" class="form-input" placeholder="Current password" autocomplete="current-password">
+          </div>
+          <div>
+            <label style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-muted);margin-bottom:4px">New Password</label>
+            <input type="password" id="new-pw-input" class="form-input" placeholder="New password" autocomplete="new-password">
+          </div>
+        </div>
+      `,
+      footerHTML: '<button class="btn btn--primary" id="change-pw-btn">Change Password</button>'
+    });
+    document.getElementById('change-pw-btn').addEventListener('click', async () => {
+      const currentPassword = document.getElementById('cur-pw-input').value;
+      const newPassword = document.getElementById('new-pw-input').value;
+      if (!currentPassword || !newPassword) return showToast('Both fields required', 'error');
+      if (newPassword.length < 4) return showToast('Password must be at least 4 characters', 'error');
+      try {
+        await apiFetch('/api/me/password', { method: 'PUT', body: JSON.stringify({ currentPassword, newPassword }) });
+        showToast('Password changed', 'success');
+        hideModal();
+      } catch (e) {
+        showToast(e.message, 'error');
+      }
+    });
+  }
+
+  // =============================================
   // INIT
   // =============================================
   // =============================================
@@ -2322,7 +2479,23 @@
 
     attachListeners();
     try {
-      await refreshAll();
+      const [, me, ver] = await Promise.all([
+        refreshAll(),
+        apiFetch('/api/me').catch(() => null),
+        fetch('/api/version').then(r => r.json()).catch(() => null),
+      ]);
+      if (me) {
+        state.me = me;
+        if (me.role === 'admin') {
+          document.getElementById('users-btn').style.display = '';
+          document.getElementById('users-btn').addEventListener('click', showUsersModal);
+        }
+      }
+      if (ver && ver.sha && ver.sha !== 'dev') {
+        const badge = document.getElementById('version-badge');
+        badge.textContent = ver.sha.slice(0, 7);
+        badge.style.display = '';
+      }
     } catch(e) {
       showToast('Could not load data', 'error');
     }

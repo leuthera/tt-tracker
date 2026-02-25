@@ -2,16 +2,19 @@
 
 const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert/strict');
-const { startDbService, startServer, login, kill } = require('../helpers/setup');
+const { startDbService, startServer, login, createUser, kill } = require('../helpers/setup');
 
 describe('matches API', () => {
-  let db, server, cookie;
+  let db, server, cookie, userCookie;
   let p1, p2;
 
   before(async () => {
     db = await startDbService();
     server = await startServer(db.url);
     cookie = await login(server.url);
+    // Create a regular user
+    await createUser(server.url, cookie, { username: 'match_tester', password: 'testpass123', role: 'user' });
+    userCookie = await login(server.url, 'match_tester', 'testpass123');
 
     // Create two players for match tests
     const r1 = await apiJson('/api/players', {
@@ -211,6 +214,37 @@ describe('matches API', () => {
     const match = await createRes.json();
 
     const res = await api(`/api/matches/${match.id}`, { method: 'DELETE' });
+    assert.equal(res.status, 200);
+  });
+
+  it('non-admin gets 403 on DELETE match', async () => {
+    // Create a match
+    const createRes = await apiJson('/api/matches', {
+      method: 'POST',
+      body: JSON.stringify({
+        player1Id: p1.id, player2Id: p2.id,
+        sets: [{ p1: 11, p2: 5 }],
+      }),
+    });
+    const match = await createRes.json();
+
+    const res = await fetch(`${server.url}/api/matches/${match.id}`, {
+      method: 'DELETE',
+      headers: { Cookie: userCookie },
+    });
+    assert.equal(res.status, 403);
+  });
+
+  it('non-admin can still create matches', async () => {
+    // Use userCookie to create a match
+    const res = await fetch(`${server.url}/api/matches`, {
+      method: 'POST',
+      headers: { Cookie: userCookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        player1Id: p1.id, player2Id: p2.id,
+        sets: [{ p1: 11, p2: 5 }],
+      }),
+    });
     assert.equal(res.status, 200);
   });
 });

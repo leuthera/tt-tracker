@@ -112,7 +112,7 @@
 - [x] Health check endpoint
 - [x] Separate test instance (app-test + db-test on port 8001)
 - [x] Admin ability to delete players (even with match history) and matches
-- [ ] Show build number at bottom of page for debugging
+- [x] Show build number in header for debugging
 
 ## Gameplay
 
@@ -148,9 +148,10 @@
 
 ## User Accounts
 
-- [ ] User registration with password
-- [ ] Forgot password / password reset flow
-- [ ] Only admin can delete users or matches
+- [x] Multi-user accounts with admin bootstrap from env vars
+- [x] Admin-only user management (create, reset password, delete)
+- [x] Role-based permissions (admin/user) — only admins can delete players, matches, and manage users
+- [x] Users can change their own password
 
 ## Testing
 
