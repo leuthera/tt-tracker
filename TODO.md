@@ -109,3 +109,5 @@
 - [ ] CI/CD pipeline
 - [x] HTTPS / TLS configuration
 - [x] Health check endpoint
+- [ ] Separate test database for testing purposes
+- [ ] Admin ability to delete players (even with match history) and matches
