@@ -1,0 +1,83 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build & start test services
+        run: docker compose up -d --build app-test db-test
+
+      - name: Wait for healthy
+        run: |
+          echo "Waiting for app-test to be healthy..."
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:8001/healthz > /dev/null 2>&1; then
+              echo "app-test is healthy after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "app-test failed to become healthy within 60s"
+          docker compose logs app-test db-test
+          exit 1
+
+      - name: "Smoke test: /healthz returns ok"
+        run: |
+          BODY=$(curl -sf http://localhost:8001/healthz)
+          echo "$BODY"
+          echo "$BODY" | grep -q '"status":"ok"'
+
+      - name: "Smoke test: /login page renders"
+        run: |
+          BODY=$(curl -sf http://localhost:8001/login)
+          echo "$BODY" | grep -qi '<form'
+          echo "$BODY" | grep -qi 'login\|sign in\|tt-tracker'
+
+      - name: "Smoke test: /api/players returns 401 without auth"
+        run: |
+          HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8001/api/players)
+          echo "Got HTTP $HTTP_CODE"
+          [ "$HTTP_CODE" = "401" ]
+
+      - name: "Smoke test: db-test healthz"
+        run: |
+          docker compose exec db-test wget --spider -q http://localhost:3000/healthz
+
+      - name: Teardown
+        if: always()
+        run: docker compose down -v
+
+  deploy:
+    needs: ci
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            cd ~/tt-tracker
+            git pull origin main
+            docker compose up --build -d app db
+            echo "Waiting for app to be healthy..."
+            for i in $(seq 1 60); do
+              if curl -sfk https://localhost:8000/healthz > /dev/null 2>&1; then
+                echo "Deployed and healthy after ${i}s"
+                exit 0
+              fi
+              sleep 1
+            done
+            echo "WARNING: app not healthy after 60s"
+            docker compose logs --tail=20 app
+            exit 1
