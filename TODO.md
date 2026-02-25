@@ -14,7 +14,7 @@
 ## Player Management
 
 - [x] Add player with name validation (1–30 chars, unique, case-insensitive)
-- [x] Delete player (only if no match history)
+- [x] Delete player (409 if match history; `?force=true` cascade-deletes matches)
 - [x] Player list sorted alphabetically
 - [x] Player avatars with deterministic color based on name hash
 - [x] Player detail modal with full stats
@@ -78,7 +78,7 @@
 
 - [x] `GET /api/players` — list all players
 - [x] `POST /api/players` — create player
-- [x] `DELETE /api/players/:id` — delete player (with match history check)
+- [x] `DELETE /api/players/:id` — delete player (409 if matches exist; `?force=true` to cascade)
 - [x] `GET /api/matches` — list all matches (supports `?player=` filter)
 - [x] `POST /api/matches` — create match (with full validation)
 - [x] `DELETE /api/matches/:id` — delete match
@@ -108,6 +108,7 @@
 - [x] Docker Compose file
 - [ ] CI/CD pipeline
 - [x] HTTPS / TLS configuration
+- [x] HTTP → HTTPS redirect (protocol multiplexing on same port)
 - [x] Health check endpoint
-- [x] Separate test database for testing purposes
+- [x] Separate test instance (app-test + db-test on port 8001)
 - [x] Admin ability to delete players (even with match history) and matches
