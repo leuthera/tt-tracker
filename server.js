@@ -393,8 +393,10 @@ if (TLS_CERT && TLS_KEY) {
   // to distinguish TLS handshakes (0x16) from plain HTTP
   net.createServer(socket => {
     socket.once('data', buf => {
+      socket.pause();
       socket.unshift(buf);
       (buf[0] === 0x16 ? httpsServer : httpRedirect).emit('connection', socket);
+      process.nextTick(() => socket.resume());
     });
   }).listen(PORT, () => {
     console.log(`TT Tracker running at https://localhost:${PORT}`);
