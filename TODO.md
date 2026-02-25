@@ -106,9 +106,66 @@
 - [x] PWA manifest / service worker
 - [x] Dark mode
 - [x] Docker Compose file
-- [ ] CI/CD pipeline
+- [x] CI/CD pipeline
 - [x] HTTPS / TLS configuration
 - [x] HTTP → HTTPS redirect (protocol multiplexing on same port)
 - [x] Health check endpoint
 - [x] Separate test instance (app-test + db-test on port 8001)
 - [x] Admin ability to delete players (even with match history) and matches
+- [ ] Show build number at bottom of page for debugging
+
+## Gameplay
+
+- [ ] ELO rating system with progression tracking
+- [ ] Doubles matches (2v2)
+- [ ] Tournament mode (round-robin or bracket)
+- [ ] Live scoring — score a match point-by-point in real time
+
+## Stats & Visualization
+
+- [ ] Charts — rating/win-rate progression over time per player
+- [ ] Season filtering — view stats for a specific date range
+- [ ] Player comparison — side-by-side stat view for two players
+
+## Social & Engagement
+
+- [ ] Achievements/badges (first win, 10-game streak, comeback king, etc.)
+- [ ] Shareable match result cards (generated image)
+- [ ] Challenge system — players can challenge each other to a match
+
+## Quality of Life
+
+- [ ] Offline support — log matches offline, sync when back online
+- [ ] Data export (CSV/JSON)
+- [ ] Multi-language support (German/English)
+
+## Locations
+
+- [ ] Locations section to collect table tennis venues with name, coordinates, and images
+- [ ] Image upload for location photos
+- [ ] Optionally attach a location to a match
+- [ ] Auto-detect nearest location via GPS
+
+## User Accounts
+
+- [ ] User registration with password
+- [ ] Forgot password / password reset flow
+- [ ] Only admin can delete users or matches
+
+## Testing
+
+- [ ] Create a test suite for existing features
+
+## Security Hardening
+
+- [ ] Add `SameSite: 'Strict'` to session cookie
+- [ ] Add security headers (X-Frame-Options, X-Content-Type-Options, CSP)
+- [ ] Add HSTS header when TLS is enabled
+- [ ] Add rate limiting on login endpoint
+- [ ] Add CSRF protection on state-changing endpoints
+- [ ] Add request body size limits to `express.json()` / `express.urlencoded()`
+- [ ] Add authentication between app and db-service
+- [ ] Return generic error messages in db-service (don't leak `e.message`)
+- [ ] Add input length validation on match notes
+- [ ] Log failed login attempts
+- [ ] Move hardcoded credentials out of docker-compose.yml into `.env`
