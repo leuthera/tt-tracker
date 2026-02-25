@@ -9,6 +9,7 @@ RUN npm install --omit=dev
 # Copy app files
 COPY server.js index.html ./
 COPY manifest.json icon.svg sw.js ./
+COPY lib/ lib/
 
 EXPOSE 8000
 
