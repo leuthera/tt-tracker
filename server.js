@@ -139,15 +139,23 @@ const loginHTML = `<!DOCTYPE html>
       --border: #e0e8e0; --text: #1a2e1a; --text-muted: #6b7c6b;
       --radius-md: 12px; --radius-lg: 16px;
     }
+    [data-theme="dark"] {
+      --border: #3a3e3a; --text: #e0e4e0; --text-muted: #8a9a8a;
+    }
     html, body {
       height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: #f0f4f0; display: flex; align-items: center; justify-content: center;
       -webkit-tap-highlight-color: transparent;
     }
+    [data-theme="dark"] body { background: #1a1d1a; }
     .card {
       background: #fff; border-radius: var(--radius-lg); padding: 32px 24px;
       width: 90%; max-width: 360px; box-shadow: 0 8px 24px rgba(0,0,0,0.12);
     }
+    [data-theme="dark"] .card { background: #242824; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+    [data-theme="dark"] input { background: #2a2e2a; border-color: #3a3e3a; color: #e0e4e0; }
+    [data-theme="dark"] input:focus { box-shadow: 0 0 0 3px rgba(76,175,80,0.2); }
+    [data-theme="dark"] .error { background: rgba(239,83,80,0.15); color: #ef5350; }
     .logo { text-align: center; margin-bottom: 28px; }
     .logo h1 { font-size: 28px; color: var(--primary); }
     .logo p { font-size: 14px; color: var(--text-muted); margin-top: 4px; }
@@ -191,6 +199,13 @@ const loginHTML = `<!DOCTYPE html>
       <button type="submit">Sign In</button>
     </form>
   </div>
+  <script>
+    (function() {
+      var saved = localStorage.getItem('theme');
+      var theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      if (theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+    })();
+  </script>
 </body>
 </html>`;
 
@@ -224,6 +239,16 @@ app.post('/login', (req, res) => {
 app.post('/logout', (req, res) => {
   req.session.destroy(() => res.redirect('/login'));
 });
+
+// ─── HEALTH CHECK ─────────────────────────────────────────────────────────────
+app.get('/healthz', (req, res) => {
+  res.json({ status: 'ok' });
+});
+
+// ─── PWA STATIC FILES (before auth) ──────────────────────────────────────────
+app.get('/manifest.json', (req, res) => res.sendFile(path.join(__dirname, 'manifest.json')));
+app.get('/icon.svg', (req, res) => res.sendFile(path.join(__dirname, 'icon.svg')));
+app.get('/sw.js', (req, res) => res.sendFile(path.join(__dirname, 'sw.js')));
 
 // ─── SERVE APP ────────────────────────────────────────────────────────────────
 app.get('/', requireAuth, (req, res) => {

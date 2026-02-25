@@ -7,6 +7,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>TT Tracker</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
   <style>
     /* === RESET + ROOT VARIABLES === */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -35,6 +37,42 @@
       --shadow-md: 0 4px 12px rgba(0,0,0,0.10);
       --shadow-lg: 0 8px 24px rgba(0,0,0,0.14);
     }
+
+    [data-theme="dark"] {
+      --bg: #1a1d1a;
+      --surface: #242824;
+      --surface-2: #2a2e2a;
+      --border: #3a3e3a;
+      --text: #e0e4e0;
+      --text-muted: #8a9a8a;
+      --win: #4caf50;
+      --loss: #ef5350;
+      --danger: #ef5350;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+      --shadow-lg: 0 8px 24px rgba(0,0,0,0.5);
+    }
+
+    [data-theme="dark"] .loading-overlay {
+      background: rgba(26,29,26,0.85);
+    }
+
+    [data-theme="dark"] .form-select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24'%3E%3Cpath fill='%238a9a8a' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+    }
+
+    [data-theme="dark"] .form-badge--win  { background: rgba(76,175,80,0.2); }
+    [data-theme="dark"] .form-badge--loss { background: rgba(239,83,80,0.18); }
+    [data-theme="dark"] .form-badge--draw { background: rgba(138,154,138,0.2); }
+
+    [data-theme="dark"] .streak-badge--win  { background: rgba(76,175,80,0.18); }
+    [data-theme="dark"] .streak-badge--loss { background: rgba(239,83,80,0.15); }
+
+    [data-theme="dark"] .result-preview--winning { background: rgba(76,175,80,0.12); }
+
+    [data-theme="dark"] .toast { background: #2a2e2a; }
+
+    [data-theme="dark"] .error { background: rgba(239,83,80,0.15); color: #ef5350; }
 
     html, body {
       height: 100%;
@@ -988,7 +1026,37 @@
       body { background: #c8dcc8; }
       .app-wrapper { box-shadow: var(--shadow-lg); }
     }
+    @media (min-width: 480px) {
+      [data-theme="dark"] body { background: #121412; }
+    }
+
+    /* === THEME TOGGLE === */
+    .theme-toggle {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.3);
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      padding: 0;
+      flex-shrink: 0;
+      transition: background 0.15s;
+    }
+    .theme-toggle:active { background: rgba(255,255,255,0.3); }
   </style>
+  <script>
+    // Apply theme immediately to prevent flash of wrong theme
+    (function() {
+      var saved = localStorage.getItem('theme');
+      var theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      if (theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+    })();
+  </script>
 </head>
 <body>
 
@@ -997,9 +1065,12 @@
   <!-- Header -->
   <header class="app-header">
     <div class="app-header__title">🏓 TT Tracker</div>
-    <form method="POST" action="/logout" style="margin:0">
-      <button type="submit" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:#fff;border-radius:20px;padding:6px 14px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">Sign out</button>
-    </form>
+    <div style="display:flex;align-items:center;gap:8px">
+      <button class="theme-toggle" id="theme-toggle-btn" aria-label="Toggle dark mode">🌙</button>
+      <form method="POST" action="/logout" style="margin:0">
+        <button type="submit" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:#fff;border-radius:20px;padding:6px 14px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">Sign out</button>
+      </form>
+    </div>
   </header>
 
   <!-- Loading overlay -->
@@ -2188,7 +2259,41 @@
   // =============================================
   // INIT
   // =============================================
+  // =============================================
+  // THEME TOGGLE
+  // =============================================
+  function getEffectiveTheme() {
+    var saved = localStorage.getItem('theme');
+    if (saved) return saved;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+
+  function applyTheme(theme) {
+    if (theme === 'dark') {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+    }
+    var btn = document.getElementById('theme-toggle-btn');
+    if (btn) btn.textContent = theme === 'dark' ? '☀️' : '🌙';
+    // Update meta theme-color
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', theme === 'dark' ? '#1e5c1e' : '#2d7a2d');
+  }
+
   document.addEventListener('DOMContentLoaded', async () => {
+    // Theme setup
+    applyTheme(getEffectiveTheme());
+    document.getElementById('theme-toggle-btn').addEventListener('click', () => {
+      var current = getEffectiveTheme();
+      var next = current === 'dark' ? 'light' : 'dark';
+      localStorage.setItem('theme', next);
+      applyTheme(next);
+    });
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+      if (!localStorage.getItem('theme')) applyTheme(getEffectiveTheme());
+    });
+
     attachListeners();
     try {
       await refreshAll();
@@ -2197,6 +2302,8 @@
     }
     renderHome();
     hideLoading();
+
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
   });
 
 })();

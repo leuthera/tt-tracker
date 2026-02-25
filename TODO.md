@@ -102,10 +102,10 @@
 
 ## Future Enhancements
 
-- [ ] Configurable credentials via environment variables (currently hardcoded in USERS array)
-- [ ] PWA manifest / service worker (meta tags present but no manifest.json or SW)
-- [ ] Dark mode
-- [ ] Docker Compose file
+- [x] Configurable credentials via environment variables (ADMIN_USER, ADMIN_PASS)
+- [x] PWA manifest / service worker
+- [x] Dark mode
+- [x] Docker Compose file
 - [ ] CI/CD pipeline
 - [ ] HTTPS / TLS configuration
-- [ ] Health check endpoint
+- [x] Health check endpoint

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Green circle background -->
+  <circle cx="256" cy="256" r="256" fill="#2d7a2d"/>
+  <!-- Table tennis paddle -->
+  <ellipse cx="230" cy="210" rx="110" ry="120" fill="#c0392b" stroke="#8b0000" stroke-width="6" transform="rotate(-20, 230, 210)"/>
+  <ellipse cx="230" cy="210" rx="95" ry="105" fill="#e74c3c" transform="rotate(-20, 230, 210)"/>
+  <!-- Paddle handle -->
+  <rect x="280" y="310" width="36" height="100" rx="10" fill="#8B4513" stroke="#5C3010" stroke-width="4" transform="rotate(-20, 298, 360)"/>
+  <!-- Table tennis ball -->
+  <circle cx="340" cy="140" r="38" fill="#f1c40f" stroke="#d4ac0d" stroke-width="4"/>
+  <path d="M340 102 Q350 140 340 178" fill="none" stroke="#d4ac0d" stroke-width="3"/>
+</svg>
