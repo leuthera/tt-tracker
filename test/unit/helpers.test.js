@@ -6,6 +6,7 @@ const {
   hashPassword, verifyPassword,
   countSetWins, determineWinner,
   dbToPlayer, dbToMatch, dbToUser,
+  csvEscape,
 } = require('../../lib/helpers');
 
 describe('hashPassword / verifyPassword', () => {
@@ -120,5 +121,47 @@ describe('dbToUser', () => {
     const row = { id: 'u_1', username: 'bob', role: 'user', created_at: 1700000000, password: 'secret:hash' };
     const result = dbToUser(row);
     assert.equal(result.password, undefined);
+  });
+});
+
+describe('csvEscape', () => {
+  it('returns plain string unchanged', () => {
+    assert.equal(csvEscape('hello'), 'hello');
+  });
+
+  it('wraps value with commas in quotes', () => {
+    assert.equal(csvEscape('one,two'), '"one,two"');
+  });
+
+  it('escapes double quotes by doubling them', () => {
+    assert.equal(csvEscape('say "hi"'), '"say ""hi"""');
+  });
+
+  it('wraps value with newlines in quotes', () => {
+    assert.equal(csvEscape('line1\nline2'), '"line1\nline2"');
+  });
+
+  it('wraps value with carriage return in quotes', () => {
+    assert.equal(csvEscape('line1\rline2'), '"line1\rline2"');
+  });
+
+  it('returns empty string for null', () => {
+    assert.equal(csvEscape(null), '');
+  });
+
+  it('returns empty string for undefined', () => {
+    assert.equal(csvEscape(undefined), '');
+  });
+
+  it('returns empty string for empty string', () => {
+    assert.equal(csvEscape(''), '');
+  });
+
+  it('converts numbers to strings', () => {
+    assert.equal(csvEscape(42), '42');
+  });
+
+  it('handles value with comma and quotes together', () => {
+    assert.equal(csvEscape('a,"b"'), '"a,""b"""');
   });
 });

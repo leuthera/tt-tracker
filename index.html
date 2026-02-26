@@ -1048,6 +1048,39 @@
       transition: background 0.15s;
     }
     .theme-toggle:active { background: rgba(255,255,255,0.3); }
+
+    /* === OFFLINE BANNER === */
+    .offline-banner {
+      display: none;
+      background: var(--accent);
+      color: #fff;
+      text-align: center;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+    .offline-banner.active { display: block; }
+
+    /* === SYNC BADGE === */
+    .sync-badge {
+      display: none;
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      align-items: center;
+      justify-content: center;
+      line-height: 18px;
+      text-align: center;
+    }
+    .sync-badge.active { display: flex; }
   </style>
   <script>
     // Apply theme immediately to prevent flash of wrong theme
@@ -1065,10 +1098,12 @@
   <!-- Header -->
   <header class="app-header">
     <div style="display:flex;align-items:center;gap:8px">
-      <div class="app-header__title">🏓 TT Tracker</div>
+      <div class="app-header__title" style="position:relative">🏓 TT Tracker<span class="sync-badge" id="sync-badge">0</span></div>
       <span id="version-badge" style="font-size:10px;color:rgba(255,255,255,0.5);font-weight:400;display:none"></span>
     </div>
     <div style="display:flex;align-items:center;gap:8px">
+      <button class="theme-toggle" id="lang-toggle-btn" aria-label="Toggle language" style="font-size:12px;font-weight:700">EN</button>
+      <button class="theme-toggle" id="export-btn" aria-label="Export data" title="Export data">&#8615;</button>
       <button class="theme-toggle" id="theme-toggle-btn" aria-label="Toggle dark mode">🌙</button>
       <button id="users-btn" aria-label="Manage users" style="display:none;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:#fff;border-radius:50%;width:32px;height:32px;font-size:16px;cursor:pointer;padding:0;line-height:1">&#9881;</button>
       <form method="POST" action="/logout" style="margin:0">
@@ -1076,6 +1111,9 @@
       </form>
     </div>
   </header>
+
+  <!-- Offline banner -->
+  <div class="offline-banner" id="offline-banner"></div>
 
   <!-- Loading overlay -->
   <div class="loading-overlay active" id="loading-overlay"><div class="loading-spinner"></div></div>
@@ -1211,6 +1249,215 @@
   ];
 
   // =============================================
+  // I18N — TRANSLATIONS
+  // =============================================
+  const translations = {
+    en: {
+      // Nav
+      'nav.home': 'Home', 'nav.new': 'New', 'nav.players': 'Players',
+      'nav.history': 'History', 'nav.stats': 'Stats',
+      // Header
+      'header.signOut': 'Sign out', 'header.exportData': 'Export data',
+      // Welcome
+      'home.ready': 'Ready to play?', 'home.trackResults': 'Track your table tennis results',
+      'home.newMatch': '+ New Match',
+      // Recent matches
+      'home.recentMatches': 'Recent Matches', 'home.viewAll': 'View all',
+      'home.noMatchesTitle': 'No matches yet', 'home.noMatchesText': 'Log your first game to get started!',
+      // Top players
+      'home.players': 'Players', 'home.addPlayers': 'Add players',
+      'home.noPlayersTitle': 'No players yet', 'home.noPlayersText': 'Add players to start tracking matches',
+      'home.topPlayers': 'Top Players', 'home.seeAllStats': 'See all stats',
+      // New match
+      'match.players': 'Players', 'match.selectPlayer': 'Select player\u2026',
+      'match.sets': 'Sets', 'match.addSet': '+ Add Set',
+      'match.result': 'Result', 'match.selectAndEnter': 'Select players & enter scores',
+      'match.selectDifferent': 'Select different players', 'match.enterScores': 'Enter scores',
+      'match.leads': '{name} leads {score}', 'match.tied': 'Tied {score}',
+      'match.noteLabel': 'Note (optional)', 'match.notePlaceholder': 'e.g. Friendly game, tournament...',
+      'match.save': 'Save Match', 'match.saving': 'Saving\u2026',
+      'match.saved': 'Match saved!', 'match.errorSave': 'Could not save match',
+      'match.errorBothPlayers': 'Please select both players',
+      'match.errorDifferent': 'Players must be different',
+      'match.errorOneSet': 'Add at least one set',
+      'match.errorSetDraw': 'Set {n}: scores must be different (no draws in table tennis)',
+      // Players
+      'players.addPlayer': '+ Add Player', 'players.noPlayersTitle': 'No players yet',
+      'players.noPlayersText': 'Tap "+ Add Player" to get started',
+      'players.matches': '{n} matches', 'players.match1': '1 match',
+      // Add player modal
+      'addPlayer.title': 'Add Player', 'addPlayer.nameLabel': 'Name',
+      'addPlayer.namePlaceholder': 'Enter player name\u2026', 'addPlayer.save': 'Add Player',
+      'addPlayer.added': '{name} added!',
+      // Player detail
+      'playerDetail.matchesPlayed': '{n} matches played', 'playerDetail.matchPlayed1': '1 match played',
+      'playerDetail.winRate': 'Win Rate', 'playerDetail.wl': 'W\u2013L',
+      'playerDetail.setsWon': 'Sets Won', 'playerDetail.pointsWon': 'Points Won',
+      'playerDetail.recentForm': 'Recent Form', 'playerDetail.h2h': 'Head to Head',
+      'playerDetail.delete': 'Delete Player',
+      'playerDetail.deleteConfirm': 'Delete {name}?',
+      'playerDetail.deleteWithMatches': 'This player has {n} match(es). Delete {name} AND all their matches?',
+      'playerDetail.deleteNowWithMatches': 'This player now has match history. Delete {name} AND all their matches?',
+      'playerDetail.deletedWithMatches': '{name} and their matches deleted',
+      'playerDetail.deleted': '{name} deleted',
+      'playerDetail.winStreak': '{n} win streak', 'playerDetail.lossStreak': '{n} loss streak',
+      // History
+      'history.allPlayers': 'All Players', 'history.noMatchesTitle': 'No matches found',
+      'history.noMatchesFiltered': 'No matches for this player yet',
+      'history.noMatchesAll': 'Log your first match!', 'history.errorLoad': 'Could not load matches',
+      // Date groups
+      'date.today': 'Today', 'date.yesterday': 'Yesterday',
+      // Stats
+      'stats.leaderboard': 'Leaderboard', 'stats.noPlayersTitle': 'No players yet',
+      'stats.noPlayersText': 'Add players to see the leaderboard',
+      'stats.playerStats': "{name}'s Stats", 'stats.back': '\u2190 All',
+      // Confirm
+      'confirm.title': 'Confirm', 'confirm.delete': 'Delete', 'confirm.cancel': 'Cancel',
+      // Toast
+      'toast.dataError': 'Could not load data', 'toast.matchDeleted': 'Match deleted',
+      'toast.matchDeleteError': 'Could not delete match',
+      // Export
+      'export.title': 'Export Data', 'export.description': 'Download your data as CSV or JSON files.',
+      'export.json': 'Export JSON', 'export.playersCSV': 'Export Players CSV',
+      'export.matchesCSV': 'Export Matches CSV',
+      'export.jsonDone': 'JSON exported', 'export.playersDone': 'Players CSV exported',
+      'export.matchesDone': 'Matches CSV exported',
+      // Users
+      'users.title': 'Manage Users', 'users.loading': 'Loading...',
+      'users.you': '(you)', 'users.resetPw': 'Reset pw',
+      'users.deleteBtn': 'Delete', 'users.addUser': 'Add User',
+      'users.failedLoad': 'Failed to load users',
+      'users.username': 'Username', 'users.password': 'Password', 'users.role': 'Role',
+      'users.userRole': 'User', 'users.adminRole': 'Admin',
+      'users.create': 'Create', 'users.back': 'Back',
+      'users.usernameAndPwRequired': 'Username and password required',
+      'users.pwMin4': 'Password must be at least 4 characters',
+      'users.created': 'User created',
+      'users.deleteConfirm': 'Delete user "{name}"? This cannot be undone.',
+      'users.deleted': 'User deleted',
+      // Reset password
+      'resetPw.title': 'Reset Password', 'resetPw.newPwFor': 'New password for {name}',
+      'resetPw.newPwPlaceholder': 'New password', 'resetPw.reset': 'Reset Password',
+      'resetPw.done': 'Password reset',
+      // Change own password
+      'changePw.title': 'Change Password', 'changePw.current': 'Current Password',
+      'changePw.new': 'New Password', 'changePw.currentPlaceholder': 'Current password',
+      'changePw.newPlaceholder': 'New password', 'changePw.save': 'Change Password',
+      'changePw.bothRequired': 'Both fields required', 'changePw.done': 'Password changed',
+      // Time
+      'time.justNow': 'just now', 'time.mAgo': '{n}m ago', 'time.hAgo': '{n}h ago',
+      'time.yesterday': 'Yesterday', 'time.dAgo': '{n}d ago',
+      // Offline
+      'offline.banner': 'You are offline. Changes will sync when back online.',
+      'offline.queued': 'Saved offline — will sync later',
+      'offline.syncOk': '{n} change(s) synced successfully',
+      'offline.syncFail': '{n} change(s) failed to sync',
+      'offline.syncMixed': '{ok} synced, {fail} failed',
+    },
+    de: {
+      'nav.home': 'Start', 'nav.new': 'Neu', 'nav.players': 'Spieler',
+      'nav.history': 'Verlauf', 'nav.stats': 'Statistik',
+      'header.signOut': 'Abmelden', 'header.exportData': 'Daten exportieren',
+      'home.ready': 'Bereit zu spielen?', 'home.trackResults': 'Verfolge deine Tischtennis-Ergebnisse',
+      'home.newMatch': '+ Neues Spiel',
+      'home.recentMatches': 'Letzte Spiele', 'home.viewAll': 'Alle anzeigen',
+      'home.noMatchesTitle': 'Noch keine Spiele', 'home.noMatchesText': 'Trage dein erstes Spiel ein!',
+      'home.players': 'Spieler', 'home.addPlayers': 'Spieler hinzuf\u00FCgen',
+      'home.noPlayersTitle': 'Noch keine Spieler', 'home.noPlayersText': 'F\u00FCge Spieler hinzu, um Spiele zu verfolgen',
+      'home.topPlayers': 'Top-Spieler', 'home.seeAllStats': 'Alle Statistiken',
+      'match.players': 'Spieler', 'match.selectPlayer': 'Spieler w\u00E4hlen\u2026',
+      'match.sets': 'S\u00E4tze', 'match.addSet': '+ Satz hinzuf\u00FCgen',
+      'match.result': 'Ergebnis', 'match.selectAndEnter': 'Spieler w\u00E4hlen & Punkte eingeben',
+      'match.selectDifferent': 'Verschiedene Spieler w\u00E4hlen', 'match.enterScores': 'Punkte eingeben',
+      'match.leads': '{name} f\u00FChrt {score}', 'match.tied': 'Unentschieden {score}',
+      'match.noteLabel': 'Notiz (optional)', 'match.notePlaceholder': 'z.B. Freundschaftsspiel, Turnier...',
+      'match.save': 'Spiel speichern', 'match.saving': 'Speichern\u2026',
+      'match.saved': 'Spiel gespeichert!', 'match.errorSave': 'Spiel konnte nicht gespeichert werden',
+      'match.errorBothPlayers': 'Bitte beide Spieler ausw\u00E4hlen',
+      'match.errorDifferent': 'Spieler m\u00FCssen unterschiedlich sein',
+      'match.errorOneSet': 'Mindestens einen Satz hinzuf\u00FCgen',
+      'match.errorSetDraw': 'Satz {n}: Punkte m\u00FCssen unterschiedlich sein (kein Unentschieden)',
+      'players.addPlayer': '+ Spieler hinzuf\u00FCgen', 'players.noPlayersTitle': 'Noch keine Spieler',
+      'players.noPlayersText': 'Tippe auf "+\u00A0Spieler hinzuf\u00FCgen"',
+      'players.matches': '{n} Spiele', 'players.match1': '1 Spiel',
+      'addPlayer.title': 'Spieler hinzuf\u00FCgen', 'addPlayer.nameLabel': 'Name',
+      'addPlayer.namePlaceholder': 'Spielername eingeben\u2026', 'addPlayer.save': 'Hinzuf\u00FCgen',
+      'addPlayer.added': '{name} hinzugef\u00FCgt!',
+      'playerDetail.matchesPlayed': '{n} Spiele gespielt', 'playerDetail.matchPlayed1': '1 Spiel gespielt',
+      'playerDetail.winRate': 'Siegquote', 'playerDetail.wl': 'S\u2013N',
+      'playerDetail.setsWon': 'S\u00E4tze gewonnen', 'playerDetail.pointsWon': 'Punkte gewonnen',
+      'playerDetail.recentForm': 'Letzte Form', 'playerDetail.h2h': 'Direktvergleich',
+      'playerDetail.delete': 'Spieler l\u00F6schen',
+      'playerDetail.deleteConfirm': '{name} l\u00F6schen?',
+      'playerDetail.deleteWithMatches': 'Dieser Spieler hat {n} Spiel(e). {name} UND alle Spiele l\u00F6schen?',
+      'playerDetail.deleteNowWithMatches': 'Dieser Spieler hat jetzt Spielverlauf. {name} UND alle Spiele l\u00F6schen?',
+      'playerDetail.deletedWithMatches': '{name} und alle Spiele gel\u00F6scht',
+      'playerDetail.deleted': '{name} gel\u00F6scht',
+      'playerDetail.winStreak': '{n} Siegesserie', 'playerDetail.lossStreak': '{n} Niederlagenserie',
+      'history.allPlayers': 'Alle Spieler', 'history.noMatchesTitle': 'Keine Spiele gefunden',
+      'history.noMatchesFiltered': 'Noch keine Spiele f\u00FCr diesen Spieler',
+      'history.noMatchesAll': 'Trage dein erstes Spiel ein!', 'history.errorLoad': 'Spiele konnten nicht geladen werden',
+      'date.today': 'Heute', 'date.yesterday': 'Gestern',
+      'stats.leaderboard': 'Rangliste', 'stats.noPlayersTitle': 'Noch keine Spieler',
+      'stats.noPlayersText': 'F\u00FCge Spieler hinzu, um die Rangliste zu sehen',
+      'stats.playerStats': 'Statistik von {name}', 'stats.back': '\u2190 Alle',
+      'confirm.title': 'Best\u00E4tigen', 'confirm.delete': 'L\u00F6schen', 'confirm.cancel': 'Abbrechen',
+      'toast.dataError': 'Daten konnten nicht geladen werden', 'toast.matchDeleted': 'Spiel gel\u00F6scht',
+      'toast.matchDeleteError': 'Spiel konnte nicht gel\u00F6scht werden',
+      'export.title': 'Daten exportieren', 'export.description': 'Lade deine Daten als CSV- oder JSON-Dateien herunter.',
+      'export.json': 'JSON exportieren', 'export.playersCSV': 'Spieler-CSV exportieren',
+      'export.matchesCSV': 'Spiele-CSV exportieren',
+      'export.jsonDone': 'JSON exportiert', 'export.playersDone': 'Spieler-CSV exportiert',
+      'export.matchesDone': 'Spiele-CSV exportiert',
+      'users.title': 'Benutzer verwalten', 'users.loading': 'Laden...',
+      'users.you': '(du)', 'users.resetPw': 'PW zur\u00FCcksetzen',
+      'users.deleteBtn': 'L\u00F6schen', 'users.addUser': 'Benutzer hinzuf\u00FCgen',
+      'users.failedLoad': 'Benutzer konnten nicht geladen werden',
+      'users.username': 'Benutzername', 'users.password': 'Passwort', 'users.role': 'Rolle',
+      'users.userRole': 'Benutzer', 'users.adminRole': 'Admin',
+      'users.create': 'Erstellen', 'users.back': 'Zur\u00FCck',
+      'users.usernameAndPwRequired': 'Benutzername und Passwort erforderlich',
+      'users.pwMin4': 'Passwort muss mindestens 4 Zeichen haben',
+      'users.created': 'Benutzer erstellt',
+      'users.deleteConfirm': 'Benutzer "{name}" l\u00F6schen? Dies kann nicht r\u00FCckg\u00E4ngig gemacht werden.',
+      'users.deleted': 'Benutzer gel\u00F6scht',
+      'resetPw.title': 'Passwort zur\u00FCcksetzen', 'resetPw.newPwFor': 'Neues Passwort f\u00FCr {name}',
+      'resetPw.newPwPlaceholder': 'Neues Passwort', 'resetPw.reset': 'Passwort zur\u00FCcksetzen',
+      'resetPw.done': 'Passwort zur\u00FCckgesetzt',
+      'changePw.title': 'Passwort \u00E4ndern', 'changePw.current': 'Aktuelles Passwort',
+      'changePw.new': 'Neues Passwort', 'changePw.currentPlaceholder': 'Aktuelles Passwort',
+      'changePw.newPlaceholder': 'Neues Passwort', 'changePw.save': 'Passwort \u00E4ndern',
+      'changePw.bothRequired': 'Beide Felder erforderlich', 'changePw.done': 'Passwort ge\u00E4ndert',
+      'time.justNow': 'gerade eben', 'time.mAgo': 'vor {n} Min.', 'time.hAgo': 'vor {n} Std.',
+      'time.yesterday': 'Gestern', 'time.dAgo': 'vor {n} Tagen',
+      'offline.banner': 'Du bist offline. \u00C4nderungen werden bei Verbindung synchronisiert.',
+      'offline.queued': 'Offline gespeichert \u2014 wird sp\u00E4ter synchronisiert',
+      'offline.syncOk': '{n} \u00C4nderung(en) erfolgreich synchronisiert',
+      'offline.syncFail': '{n} \u00C4nderung(en) konnten nicht synchronisiert werden',
+      'offline.syncMixed': '{ok} synchronisiert, {fail} fehlgeschlagen',
+    }
+  };
+
+  function getLang() {
+    return localStorage.getItem('lang') || 'en';
+  }
+
+  function setLang(lang) {
+    localStorage.setItem('lang', lang);
+  }
+
+  function t(key, params) {
+    const lang = getLang();
+    let str = (translations[lang] && translations[lang][key]) || translations.en[key] || key;
+    if (params) {
+      for (const [k, v] of Object.entries(params)) {
+        str = str.replace(new RegExp('\\{' + k + '\\}', 'g'), v);
+      }
+    }
+    return str;
+  }
+
+  // =============================================
   // APP STATE (in-memory cache + UI state)
   // =============================================
   const state = {
@@ -1220,7 +1467,9 @@
     newMatch: { player1Id: '', player2Id: '', sets: [{p1: 11, p2: 0}], note: '' },
     historyFilter: '',
     statsFilter: '',
-    me: { role: 'user', username: '' }
+    me: { role: 'user', username: '' },
+    isOnline: navigator.onLine,
+    pendingSync: 0
   };
 
   // =============================================
@@ -1434,14 +1683,15 @@
   function relativeTime(ts) {
     const diff = Date.now() - ts;
     const mins = Math.floor(diff / 60000);
-    if (mins < 1) return 'just now';
-    if (mins < 60) return `${mins}m ago`;
+    if (mins < 1) return t('time.justNow');
+    if (mins < 60) return t('time.mAgo', { n: mins });
     const hrs = Math.floor(diff / 3600000);
-    if (hrs < 24) return `${hrs}h ago`;
+    if (hrs < 24) return t('time.hAgo', { n: hrs });
     const days = Math.floor(diff / 86400000);
-    if (days === 1) return 'Yesterday';
-    if (days < 7) return `${days}d ago`;
-    return new Date(ts).toLocaleDateString('en', { month: 'short', day: 'numeric' });
+    if (days === 1) return t('time.yesterday');
+    if (days < 7) return t('time.dAgo', { n: days });
+    const locale = getLang() === 'de' ? 'de' : 'en';
+    return new Date(ts).toLocaleDateString(locale, { month: 'short', day: 'numeric' });
   }
 
   function dateGroup(ts) {
@@ -1449,13 +1699,113 @@
     const today = new Date(); today.setHours(0,0,0,0);
     const mDay = new Date(d); mDay.setHours(0,0,0,0);
     const diff = (today - mDay) / 86400000;
-    if (diff === 0) return 'Today';
-    if (diff === 1) return 'Yesterday';
-    return d.toLocaleDateString('en', { weekday: 'long', month: 'short', day: 'numeric' });
+    if (diff === 0) return t('date.today');
+    if (diff === 1) return t('date.yesterday');
+    const locale = getLang() === 'de' ? 'de' : 'en';
+    return d.toLocaleDateString(locale, { weekday: 'long', month: 'short', day: 'numeric' });
   }
 
   function formatSets(sets) {
     return (sets || []).map(s => `${s.p1}–${s.p2}`).join(', ');
+  }
+
+  // =============================================
+  // EXPORT HELPERS
+  // =============================================
+  function csvEscape(val) {
+    if (val === null || val === undefined) return '';
+    const str = String(val);
+    if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+      return '"' + str.replace(/"/g, '""') + '"';
+    }
+    return str;
+  }
+
+  function downloadFile(content, filename, mimeType) {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function exportPlayersCSV() {
+    const players = loadPlayers();
+    const rows = ['ID,Name,Created At'];
+    for (const p of players) {
+      rows.push([csvEscape(p.id), csvEscape(p.name), csvEscape(new Date(p.createdAt).toISOString())].join(','));
+    }
+    downloadFile(rows.join('\n'), 'tt-tracker-players.csv', 'text/csv;charset=utf-8');
+  }
+
+  function exportMatchesCSV() {
+    const matches = loadMatches();
+    const rows = ['ID,Date,Player 1,Player 2,Sets,Winner,Note'];
+    for (const m of matches) {
+      const p1 = getPlayerById(m.player1Id);
+      const p2 = getPlayerById(m.player2Id);
+      const winner = m.winnerId ? (getPlayerById(m.winnerId)?.name || m.winnerId) : 'Draw';
+      rows.push([
+        csvEscape(m.id),
+        csvEscape(new Date(m.date).toISOString()),
+        csvEscape(p1?.name || m.player1Id),
+        csvEscape(p2?.name || m.player2Id),
+        csvEscape(formatSets(m.sets)),
+        csvEscape(winner),
+        csvEscape(m.note)
+      ].join(','));
+    }
+    downloadFile(rows.join('\n'), 'tt-tracker-matches.csv', 'text/csv;charset=utf-8');
+  }
+
+  function exportJSON() {
+    const players = loadPlayers();
+    const matches = loadMatches().map(m => {
+      const p1 = getPlayerById(m.player1Id);
+      const p2 = getPlayerById(m.player2Id);
+      return {
+        ...m,
+        player1Name: p1?.name || null,
+        player2Name: p2?.name || null,
+        winnerName: m.winnerId ? (getPlayerById(m.winnerId)?.name || null) : null
+      };
+    });
+    const data = { exportedAt: new Date().toISOString(), players, matches };
+    downloadFile(JSON.stringify(data, null, 2), 'tt-tracker-export.json', 'application/json');
+  }
+
+  function showExportModal() {
+    showModal({
+      title: t('export.title'),
+      bodyHTML: `
+        <p style="font-size:14px;color:var(--text-muted);margin-bottom:16px">${esc(t('export.description'))}</p>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <button class="btn btn--primary" id="export-json-btn">${esc(t('export.json'))}</button>
+          <button class="btn btn--secondary" id="export-players-csv-btn">${esc(t('export.playersCSV'))}</button>
+          <button class="btn btn--secondary" id="export-matches-csv-btn">${esc(t('export.matchesCSV'))}</button>
+        </div>
+      `,
+      footerHTML: ''
+    });
+    document.getElementById('export-json-btn').addEventListener('click', () => {
+      exportJSON();
+      hideModal();
+      showToast(t('export.jsonDone'), 'success');
+    });
+    document.getElementById('export-players-csv-btn').addEventListener('click', () => {
+      exportPlayersCSV();
+      hideModal();
+      showToast(t('export.playersDone'), 'success');
+    });
+    document.getElementById('export-matches-csv-btn').addEventListener('click', () => {
+      exportMatchesCSV();
+      hideModal();
+      showToast(t('export.matchesDone'), 'success');
+    });
   }
 
   // =============================================
@@ -1489,13 +1839,17 @@
 
     showLoading();
 
-    // Fetch fresh data, then render
+    // Fetch fresh data, then render (silently use cached data if offline)
     try {
       await refreshAll();
     } catch(e) {
-      showToast('Could not load data', 'error');
-      hideLoading();
-      return;
+      if (!state.isOnline) {
+        // Offline — use cached state, don't show error (banner is already visible)
+      } else {
+        showToast(t('toast.dataError'), 'error');
+        hideLoading();
+        return;
+      }
     }
 
     // If a newer navigation was triggered while we were fetching, bail out
@@ -1546,14 +1900,14 @@
 
     if (state.me.role === 'admin') {
       initSwipeToDelete(card, () => {
-        showConfirmModal('Delete this match?', async () => {
+        showConfirmModal(t('confirm.title'), async () => {
           try {
             await deleteMatch(match.id);
-            showToast('Match deleted', 'success');
+            showToast(t('toast.matchDeleted'), 'success');
             if (state.currentTab === 'history') await renderHistory();
             else renderHome();
           } catch(e) {
-            showToast('Could not delete match', 'error');
+            showToast(t('toast.matchDeleteError'), 'error');
           }
         });
       });
@@ -1605,10 +1959,10 @@
     document.getElementById('home-welcome').innerHTML = `
       <div class="welcome-card">
         <div class="welcome-card__text">
-          <h2>Ready to play?</h2>
-          <p>Track your table tennis results</p>
+          <h2>${esc(t('home.ready'))}</h2>
+          <p>${esc(t('home.trackResults'))}</p>
         </div>
-        <button class="welcome-card__btn" id="welcome-new-btn">+ New Match</button>
+        <button class="welcome-card__btn" id="welcome-new-btn">${esc(t('home.newMatch'))}</button>
       </div>
     `;
     document.getElementById('welcome-new-btn').addEventListener('click', () => navigateTo('new-match'));
@@ -1620,11 +1974,11 @@
 
     if (matches.length === 0) {
       el.innerHTML = `
-        <div class="section__header"><span class="section__title">Recent Matches</span></div>
+        <div class="section__header"><span class="section__title">${esc(t('home.recentMatches'))}</span></div>
         <div class="empty-state">
           <div class="empty-state__icon">🏓</div>
-          <div class="empty-state__title">No matches yet</div>
-          <div class="empty-state__text">Log your first game to get started!</div>
+          <div class="empty-state__title">${esc(t('home.noMatchesTitle'))}</div>
+          <div class="empty-state__text">${esc(t('home.noMatchesText'))}</div>
         </div>
       `;
       return;
@@ -1635,11 +1989,11 @@
 
     const hdr = document.createElement('div');
     hdr.className = 'section__header';
-    hdr.innerHTML = `<span class="section__title">Recent Matches</span>`;
+    hdr.innerHTML = `<span class="section__title">${esc(t('home.recentMatches'))}</span>`;
     if (matches.length > 5) {
       const a = document.createElement('button');
       a.className = 'section__action';
-      a.textContent = 'View all';
+      a.textContent = t('home.viewAll');
       a.addEventListener('click', () => navigateTo('history'));
       hdr.appendChild(a);
     }
@@ -1657,13 +2011,13 @@
     if (players.length === 0) {
       el.innerHTML = `
         <div class="section__header">
-          <span class="section__title">Players</span>
-          <button class="section__action" id="home-add-player">Add players</button>
+          <span class="section__title">${esc(t('home.players'))}</span>
+          <button class="section__action" id="home-add-player">${esc(t('home.addPlayers'))}</button>
         </div>
         <div class="empty-state">
           <div class="empty-state__icon">👥</div>
-          <div class="empty-state__title">No players yet</div>
-          <div class="empty-state__text">Add players to start tracking matches</div>
+          <div class="empty-state__title">${esc(t('home.noPlayersTitle'))}</div>
+          <div class="empty-state__text">${esc(t('home.noPlayersText'))}</div>
         </div>
       `;
       document.getElementById('home-add-player').addEventListener('click', () => navigateTo('players'));
@@ -1676,8 +2030,8 @@
     const rankClass = ['leaderboard__rank--gold','leaderboard__rank--silver','leaderboard__rank--bronze'];
     let html = `
       <div class="section__header">
-        <span class="section__title">Top Players</span>
-        <button class="section__action" id="home-see-stats">See all stats</button>
+        <span class="section__title">${esc(t('home.topPlayers'))}</span>
+        <button class="section__action" id="home-see-stats">${esc(t('home.seeAllStats'))}</button>
       </div>
       <div class="leaderboard">
     `;
@@ -1707,13 +2061,13 @@
     // Reset save button state (may have been left disabled after a previous save)
     const saveBtn = document.getElementById('save-match-btn');
     saveBtn.disabled = false;
-    saveBtn.textContent = 'Save Match';
+    saveBtn.textContent = t('match.save');
   }
 
   function populatePlayerSelects() {
     const players = loadPlayers();
     const opts = players.map(p => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('');
-    const placeholder = `<option value="">Select player…</option>`;
+    const placeholder = `<option value="">${esc(t('match.selectPlayer'))}</option>`;
 
     const s1 = document.getElementById('player1-select');
     const s2 = document.getElementById('player2-select');
@@ -1754,12 +2108,12 @@
 
     if (!p1Id || !p2Id) {
       preview.className = 'result-preview result-preview--neutral';
-      text.textContent = 'Select players & enter scores';
+      text.textContent = t('match.selectAndEnter');
       return;
     }
     if (p1Id === p2Id) {
       preview.className = 'result-preview result-preview--neutral';
-      text.textContent = 'Select different players';
+      text.textContent = t('match.selectDifferent');
       return;
     }
 
@@ -1771,13 +2125,13 @@
 
     if (w1 > w2) {
       preview.className = 'result-preview result-preview--winning';
-      text.textContent = `${n1} leads ${w1}–${w2}`;
+      text.textContent = t('match.leads', { name: n1, score: `${w1}\u2013${w2}` });
     } else if (w2 > w1) {
       preview.className = 'result-preview result-preview--winning';
-      text.textContent = `${n2} leads ${w2}–${w1}`;
+      text.textContent = t('match.leads', { name: n2, score: `${w2}\u2013${w1}` });
     } else {
       preview.className = 'result-preview result-preview--neutral';
-      text.textContent = w1 === 0 ? 'Enter scores' : `Tied ${w1}–${w2}`;
+      text.textContent = w1 === 0 ? t('match.enterScores') : t('match.tied', { score: `${w1}\u2013${w2}` });
     }
   }
 
@@ -1785,14 +2139,14 @@
     const p1Id = document.getElementById('player1-select').value;
     const p2Id = document.getElementById('player2-select').value;
 
-    if (!p1Id || !p2Id) return 'Please select both players';
-    if (p1Id === p2Id) return 'Players must be different';
-    if (state.newMatch.sets.length === 0) return 'Add at least one set';
+    if (!p1Id || !p2Id) return t('match.errorBothPlayers');
+    if (p1Id === p2Id) return t('match.errorDifferent');
+    if (state.newMatch.sets.length === 0) return t('match.errorOneSet');
 
     for (let i = 0; i < state.newMatch.sets.length; i++) {
       const s = state.newMatch.sets[i];
       const p1s = Number(s.p1), p2s = Number(s.p2);
-      if (p1s === p2s) return `Set ${i+1}: scores must be different (no draws in table tennis)`;
+      if (p1s === p2s) return t('match.errorSetDraw', { n: i + 1 });
     }
 
     return null; // valid
@@ -1804,7 +2158,7 @@
 
     const saveBtn = document.getElementById('save-match-btn');
     saveBtn.disabled = true;
-    saveBtn.textContent = 'Saving…';
+    saveBtn.textContent = t('match.saving');
 
     try {
       await addMatch({
@@ -1814,12 +2168,12 @@
         note: document.getElementById('match-note').value
       });
       state.newMatch = { player1Id: '', player2Id: '', sets: [{p1: 11, p2: 0}], note: '' };
-      showToast('Match saved!', 'success');
+      showToast(t('match.saved'), 'success');
       await navigateTo('home');
     } catch(e) {
-      showToast(e.message || 'Could not save match', 'error');
+      showToast(e.message || t('match.errorSave'), 'error');
       saveBtn.disabled = false;
-      saveBtn.textContent = 'Save Match';
+      saveBtn.textContent = t('match.save');
     }
   }
 
@@ -1834,8 +2188,8 @@
       el.innerHTML = `
         <div class="empty-state">
           <div class="empty-state__icon">👥</div>
-          <div class="empty-state__title">No players yet</div>
-          <div class="empty-state__text">Tap "+ Add Player" to get started</div>
+          <div class="empty-state__title">${esc(t('players.noPlayersTitle'))}</div>
+          <div class="empty-state__text">${esc(t('players.noPlayersText'))}</div>
         </div>
       `;
       return;
@@ -1850,11 +2204,12 @@
       const avatar = mkAvatar(player.name, 'md');
       row.appendChild(avatar);
 
+      const matchLabel = stats.totalMatches === 1 ? t('players.match1') : t('players.matches', { n: stats.totalMatches });
       const info = document.createElement('div');
       info.className = 'player-row__info';
       info.innerHTML = `
         <div class="player-row__name">${esc(player.name)}</div>
-        <div class="player-row__record">${stats.wins}W &nbsp;${stats.losses}L &nbsp;&bull;&nbsp;${stats.totalMatches} matches</div>
+        <div class="player-row__record">${stats.wins}W &nbsp;${stats.losses}L &nbsp;&bull;&nbsp;${esc(matchLabel)}</div>
       `;
       row.appendChild(info);
 
@@ -1870,15 +2225,15 @@
 
   function showAddPlayerModal() {
     showModal({
-      title: 'Add Player',
+      title: t('addPlayer.title'),
       bodyHTML: `
         <div class="form-group">
-          <label class="form-label" for="new-player-name">Name</label>
+          <label class="form-label" for="new-player-name">${esc(t('addPlayer.nameLabel'))}</label>
           <input type="text" class="form-input" id="new-player-name"
-                 placeholder="Enter player name…" maxlength="30" autocomplete="off">
+                 placeholder="${esc(t('addPlayer.namePlaceholder'))}" maxlength="30" autocomplete="off">
         </div>
       `,
-      footerHTML: `<button class="btn btn--primary" id="modal-save-player">Add Player</button>`
+      footerHTML: `<button class="btn btn--primary" id="modal-save-player">${esc(t('addPlayer.save'))}</button>`
     });
 
     const input = document.getElementById('new-player-name');
@@ -1891,7 +2246,7 @@
       btn.disabled = false;
       if (!res.ok) { showToast(res.error, 'error'); return; }
       hideModal();
-      showToast(`${res.player.name} added!`, 'success');
+      showToast(t('addPlayer.added', { name: res.player.name }), 'success');
       renderPlayers();
       if (state.currentTab === 'home') renderHome();
     };
@@ -1912,10 +2267,13 @@
     let streakHTML = '';
     if (stats.streak !== 0) {
       const w = stats.streak > 0;
+      const streakKey = w ? 'playerDetail.winStreak' : 'playerDetail.lossStreak';
       streakHTML = `<span class="streak-badge streak-badge--${w?'win':'loss'}" style="margin-top:6px;display:inline-flex">
-        ${w?'🔥':'❄️'} ${Math.abs(stats.streak)} ${w?'win':'loss'} streak
+        ${w?'🔥':'❄️'} ${esc(t(streakKey, { n: Math.abs(stats.streak) }))}
       </span>`;
     }
+
+    const matchesPlayedText = stats.totalMatches === 1 ? t('playerDetail.matchPlayed1') : t('playerDetail.matchesPlayed', { n: stats.totalMatches });
 
     const opponents = loadPlayers().filter(p => p.id !== playerId);
     const h2hRows = opponents.map(opp => {
@@ -1936,26 +2294,26 @@
           ${avatarHTML}
           <div>
             <div class="player-detail__name">${esc(player.name)}</div>
-            <div class="player-detail__matches">${stats.totalMatches} match${stats.totalMatches===1?'':'es'} played</div>
+            <div class="player-detail__matches">${esc(matchesPlayedText)}</div>
             ${streakHTML}
           </div>
         </div>
         <div class="stats-grid">
-          <div class="stat-card"><div class="stat-card__value">${stats.winRate}%</div><div class="stat-card__label">Win Rate</div></div>
-          <div class="stat-card"><div class="stat-card__value">${stats.wins}–${stats.losses}</div><div class="stat-card__label">W–L</div></div>
-          <div class="stat-card"><div class="stat-card__value">${stats.setsWon}</div><div class="stat-card__label">Sets Won</div></div>
-          <div class="stat-card"><div class="stat-card__value">${stats.pointsWon}</div><div class="stat-card__label">Points Won</div></div>
+          <div class="stat-card"><div class="stat-card__value">${stats.winRate}%</div><div class="stat-card__label">${esc(t('playerDetail.winRate'))}</div></div>
+          <div class="stat-card"><div class="stat-card__value">${stats.wins}\u2013${stats.losses}</div><div class="stat-card__label">${esc(t('playerDetail.wl'))}</div></div>
+          <div class="stat-card"><div class="stat-card__value">${stats.setsWon}</div><div class="stat-card__label">${esc(t('playerDetail.setsWon'))}</div></div>
+          <div class="stat-card"><div class="stat-card__value">${stats.pointsWon}</div><div class="stat-card__label">${esc(t('playerDetail.pointsWon'))}</div></div>
         </div>
         ${formBadges ? `
-          <div class="section__title" style="margin-bottom:8px">Recent Form</div>
+          <div class="section__title" style="margin-bottom:8px">${esc(t('playerDetail.recentForm'))}</div>
           <div class="form-badges" style="margin-bottom:16px">${formBadges}</div>
         ` : ''}
         ${h2hRows ? `
-          <div class="section__title" style="margin-bottom:8px">Head to Head</div>
+          <div class="section__title" style="margin-bottom:8px">${esc(t('playerDetail.h2h'))}</div>
           <div class="h2h-section">${h2hRows}</div>
         ` : ''}
       `,
-      footerHTML: state.me.role === 'admin' ? `<button class="btn btn--danger" id="modal-delete-player">Delete Player</button>` : ''
+      footerHTML: state.me.role === 'admin' ? `<button class="btn btn--danger" id="modal-delete-player">${esc(t('playerDetail.delete'))}</button>` : ''
     });
 
     if (state.me.role !== 'admin') return;
@@ -1963,17 +2321,16 @@
       hideModal();
       const hasMatches = playerMatches.length > 0;
       const msg = hasMatches
-        ? `This player has ${playerMatches.length} match(es). Delete ${player.name} AND all their matches?`
-        : `Delete ${player.name}?`;
+        ? t('playerDetail.deleteWithMatches', { n: playerMatches.length, name: player.name })
+        : t('playerDetail.deleteConfirm', { name: player.name });
       showConfirmModal(msg, async () => {
         const res = await deletePlayer(playerId, hasMatches);
         if (!res.ok) {
           if (res.status === 409) {
-            // Race condition: matches appeared between render and click
-            showConfirmModal(`This player now has match history. Delete ${player.name} AND all their matches?`, async () => {
+            showConfirmModal(t('playerDetail.deleteNowWithMatches', { name: player.name }), async () => {
               const res2 = await deletePlayer(playerId, true);
               if (!res2.ok) { showToast(res2.error, 'error'); return; }
-              showToast(`${player.name} and their matches deleted`, 'success');
+              showToast(t('playerDetail.deletedWithMatches', { name: player.name }), 'success');
               renderPlayers();
               if (state.currentTab === 'home') renderHome();
               if (state.currentTab === 'history') renderHistory();
@@ -1983,7 +2340,7 @@
           showToast(res.error, 'error');
           return;
         }
-        showToast(hasMatches ? `${player.name} and their matches deleted` : `${player.name} deleted`, 'success');
+        showToast(hasMatches ? t('playerDetail.deletedWithMatches', { name: player.name }) : t('playerDetail.deleted', { name: player.name }), 'success');
         renderPlayers();
         if (state.currentTab === 'home') renderHome();
         if (state.currentTab === 'history') renderHistory();
@@ -1996,7 +2353,7 @@
   // =============================================
   async function renderHistory() {
     const sel = document.getElementById('history-filter-select');
-    populateFilter(sel, state.historyFilter, 'All Players');
+    populateFilter(sel, state.historyFilter, t('history.allPlayers'));
 
     const el = document.getElementById('history-list');
 
@@ -2006,7 +2363,7 @@
       try {
         matches = await apiFetch(`/api/matches?player=${encodeURIComponent(state.historyFilter)}`);
       } catch(e) {
-        showToast('Could not load matches', 'error');
+        showToast(t('history.errorLoad'), 'error');
         matches = [];
       }
     } else {
@@ -2017,8 +2374,8 @@
       el.innerHTML = `
         <div class="empty-state">
           <div class="empty-state__icon">📋</div>
-          <div class="empty-state__title">No matches found</div>
-          <div class="empty-state__text">${state.historyFilter ? 'No matches for this player yet' : 'Log your first match!'}</div>
+          <div class="empty-state__title">${esc(t('history.noMatchesTitle'))}</div>
+          <div class="empty-state__text">${esc(state.historyFilter ? t('history.noMatchesFiltered') : t('history.noMatchesAll'))}</div>
         </div>
       `;
       return;
@@ -2046,7 +2403,7 @@
   // =============================================
   function renderStats() {
     const sel = document.getElementById('stats-filter-select');
-    populateFilter(sel, state.statsFilter, 'Leaderboard');
+    populateFilter(sel, state.statsFilter, t('stats.leaderboard'));
 
     if (state.statsFilter) {
       document.getElementById('leaderboard-container').innerHTML = '';
@@ -2065,8 +2422,8 @@
       el.innerHTML = `
         <div class="empty-state">
           <div class="empty-state__icon">🏆</div>
-          <div class="empty-state__title">No players yet</div>
-          <div class="empty-state__text">Add players to see the leaderboard</div>
+          <div class="empty-state__title">${esc(t('stats.noPlayersTitle'))}</div>
+          <div class="empty-state__text">${esc(t('stats.noPlayersText'))}</div>
         </div>
       `;
       return;
@@ -2111,8 +2468,9 @@
     let streakHTML = '';
     if (stats.streak !== 0) {
       const w = stats.streak > 0;
+      const streakKey = w ? 'playerDetail.winStreak' : 'playerDetail.lossStreak';
       streakHTML = `<div style="margin-bottom:12px"><span class="streak-badge streak-badge--${w?'win':'loss'}">
-        ${w?'🔥':'❄️'} ${Math.abs(stats.streak)} ${w?'win':'loss'} streak
+        ${w?'🔥':'❄️'} ${esc(t(streakKey, { n: Math.abs(stats.streak) }))}
       </span></div>`;
     }
 
@@ -2128,22 +2486,22 @@
 
     el.innerHTML = `
       <div class="section__header">
-        <span class="section__title">${esc(player.name)}'s Stats</span>
-        <button class="section__action" id="stats-back">← All</button>
+        <span class="section__title">${esc(t('stats.playerStats', { name: player.name }))}</span>
+        <button class="section__action" id="stats-back">${esc(t('stats.back'))}</button>
       </div>
       ${streakHTML}
       <div class="stats-grid">
-        <div class="stat-card"><div class="stat-card__value">${stats.winRate}%</div><div class="stat-card__label">Win Rate</div></div>
-        <div class="stat-card"><div class="stat-card__value">${stats.wins}–${stats.losses}</div><div class="stat-card__label">W–L</div></div>
-        <div class="stat-card"><div class="stat-card__value">${stats.setsWon}</div><div class="stat-card__label">Sets Won</div></div>
-        <div class="stat-card"><div class="stat-card__value">${stats.pointsWon}</div><div class="stat-card__label">Points Won</div></div>
+        <div class="stat-card"><div class="stat-card__value">${stats.winRate}%</div><div class="stat-card__label">${esc(t('playerDetail.winRate'))}</div></div>
+        <div class="stat-card"><div class="stat-card__value">${stats.wins}\u2013${stats.losses}</div><div class="stat-card__label">${esc(t('playerDetail.wl'))}</div></div>
+        <div class="stat-card"><div class="stat-card__value">${stats.setsWon}</div><div class="stat-card__label">${esc(t('playerDetail.setsWon'))}</div></div>
+        <div class="stat-card"><div class="stat-card__value">${stats.pointsWon}</div><div class="stat-card__label">${esc(t('playerDetail.pointsWon'))}</div></div>
       </div>
       ${formBadges ? `
-        <div class="section__title" style="margin-bottom:8px">Recent Form</div>
+        <div class="section__title" style="margin-bottom:8px">${esc(t('playerDetail.recentForm'))}</div>
         <div class="form-badges" style="margin-bottom:16px">${formBadges}</div>
       ` : ''}
       ${h2hRows ? `
-        <div class="section__title" style="margin-bottom:8px">Head to Head</div>
+        <div class="section__title" style="margin-bottom:8px">${esc(t('playerDetail.h2h'))}</div>
         <div class="h2h-section" style="margin-bottom:16px">${h2hRows}</div>
       ` : ''}
     `;
@@ -2183,11 +2541,11 @@
 
   function showConfirmModal(message, onConfirm) {
     showModal({
-      title: 'Confirm',
+      title: t('confirm.title'),
       bodyHTML: `<p style="font-size:15px;line-height:1.6;color:var(--text-muted)">${esc(message)}</p>`,
       footerHTML: `
-        <button class="btn btn--danger" id="confirm-yes">Delete</button>
-        <button class="btn btn--secondary" id="confirm-no">Cancel</button>
+        <button class="btn btn--danger" id="confirm-yes">${esc(t('confirm.delete'))}</button>
+        <button class="btn btn--secondary" id="confirm-no">${esc(t('confirm.cancel'))}</button>
       `
     });
     document.getElementById('confirm-yes').addEventListener('click', () => { hideModal(); onConfirm(); });
@@ -2294,7 +2652,7 @@
   // USER MANAGEMENT (admin only)
   // =============================================
   async function showUsersModal() {
-    showModal({ title: 'Manage Users', bodyHTML: '<p style="color:var(--text-muted)">Loading...</p>', footerHTML: '' });
+    showModal({ title: t('users.title'), bodyHTML: `<p style="color:var(--text-muted)">${esc(t('users.loading'))}</p>`, footerHTML: '' });
     try {
       const users = await apiFetch('/api/users');
       let html = '<div style="display:flex;flex-direction:column;gap:10px">';
@@ -2303,61 +2661,61 @@
         html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--surface-2);border-radius:var(--radius-md)">
           <div>
             <div style="font-weight:600;font-size:14px">${esc(u.username)}</div>
-            <div style="font-size:12px;color:var(--text-muted)">${esc(u.role)}${isSelf ? ' (you)' : ''}</div>
+            <div style="font-size:12px;color:var(--text-muted)">${esc(u.role)}${isSelf ? ' ' + esc(t('users.you')) : ''}</div>
           </div>
           <div style="display:flex;gap:6px">
-            <button class="btn btn--secondary" style="padding:6px 10px;font-size:12px;width:auto" onclick="window._resetUserPw('${esc(u.id)}','${esc(u.username)}')">Reset pw</button>
-            ${isSelf ? '' : `<button class="btn btn--danger" style="padding:6px 10px;font-size:12px;width:auto" onclick="window._deleteUser('${esc(u.id)}','${esc(u.username)}')">Delete</button>`}
+            <button class="btn btn--secondary" style="padding:6px 10px;font-size:12px;width:auto" onclick="window._resetUserPw('${esc(u.id)}','${esc(u.username)}')">${esc(t('users.resetPw'))}</button>
+            ${isSelf ? '' : `<button class="btn btn--danger" style="padding:6px 10px;font-size:12px;width:auto" onclick="window._deleteUser('${esc(u.id)}','${esc(u.username)}')">${esc(t('users.deleteBtn'))}</button>`}
           </div>
         </div>`;
       }
       html += '</div>';
       document.getElementById('modal-body').innerHTML = html;
       const footer = document.getElementById('modal-footer');
-      footer.innerHTML = '<button class="btn btn--primary" id="add-user-btn">Add User</button>';
+      footer.innerHTML = `<button class="btn btn--primary" id="add-user-btn">${esc(t('users.addUser'))}</button>`;
       footer.style.display = '';
       document.getElementById('add-user-btn').addEventListener('click', showAddUserModal);
     } catch (e) {
-      document.getElementById('modal-body').innerHTML = '<p style="color:var(--danger)">Failed to load users</p>';
+      document.getElementById('modal-body').innerHTML = `<p style="color:var(--danger)">${esc(t('users.failedLoad'))}</p>`;
     }
   }
 
   function showAddUserModal() {
     showModal({
-      title: 'Add User',
+      title: t('users.addUser'),
       bodyHTML: `
         <div style="display:flex;flex-direction:column;gap:12px">
           <div>
-            <label style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-muted);margin-bottom:4px">Username</label>
-            <input type="text" id="new-user-name" class="form-input" placeholder="Username" autocapitalize="off" autocomplete="off">
+            <label style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-muted);margin-bottom:4px">${esc(t('users.username'))}</label>
+            <input type="text" id="new-user-name" class="form-input" placeholder="${esc(t('users.username'))}" autocapitalize="off" autocomplete="off">
           </div>
           <div>
-            <label style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-muted);margin-bottom:4px">Password</label>
-            <input type="password" id="new-user-pass" class="form-input" placeholder="Password" autocomplete="new-password">
+            <label style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-muted);margin-bottom:4px">${esc(t('users.password'))}</label>
+            <input type="password" id="new-user-pass" class="form-input" placeholder="${esc(t('users.password'))}" autocomplete="new-password">
           </div>
           <div>
-            <label style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-muted);margin-bottom:4px">Role</label>
+            <label style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-muted);margin-bottom:4px">${esc(t('users.role'))}</label>
             <select id="new-user-role" class="form-select">
-              <option value="user">User</option>
-              <option value="admin">Admin</option>
+              <option value="user">${esc(t('users.userRole'))}</option>
+              <option value="admin">${esc(t('users.adminRole'))}</option>
             </select>
           </div>
         </div>
       `,
       footerHTML: `
-        <button class="btn btn--primary" id="create-user-btn">Create</button>
-        <button class="btn btn--secondary" id="back-to-users-btn">Back</button>
+        <button class="btn btn--primary" id="create-user-btn">${esc(t('users.create'))}</button>
+        <button class="btn btn--secondary" id="back-to-users-btn">${esc(t('users.back'))}</button>
       `
     });
     document.getElementById('create-user-btn').addEventListener('click', async () => {
       const username = document.getElementById('new-user-name').value.trim();
       const password = document.getElementById('new-user-pass').value;
       const role = document.getElementById('new-user-role').value;
-      if (!username || !password) return showToast('Username and password required', 'error');
-      if (password.length < 4) return showToast('Password must be at least 4 characters', 'error');
+      if (!username || !password) return showToast(t('users.usernameAndPwRequired'), 'error');
+      if (password.length < 4) return showToast(t('users.pwMin4'), 'error');
       try {
         await apiFetch('/api/users', { method: 'POST', body: JSON.stringify({ username, password, role }) });
-        showToast('User created', 'success');
+        showToast(t('users.created'), 'success');
         showUsersModal();
       } catch (e) {
         showToast(e.message, 'error');
@@ -2368,22 +2726,22 @@
 
   window._resetUserPw = function(userId, username) {
     showModal({
-      title: 'Reset Password',
+      title: t('resetPw.title'),
       bodyHTML: `
-        <p style="font-size:14px;color:var(--text-muted);margin-bottom:12px">New password for <strong>${esc(username)}</strong></p>
-        <input type="password" id="reset-pw-input" class="form-input" placeholder="New password" autocomplete="new-password">
+        <p style="font-size:14px;color:var(--text-muted);margin-bottom:12px">${esc(t('resetPw.newPwFor', { name: username }))}</p>
+        <input type="password" id="reset-pw-input" class="form-input" placeholder="${esc(t('resetPw.newPwPlaceholder'))}" autocomplete="new-password">
       `,
       footerHTML: `
-        <button class="btn btn--primary" id="reset-pw-btn">Reset Password</button>
-        <button class="btn btn--secondary" id="back-to-users-btn2">Back</button>
+        <button class="btn btn--primary" id="reset-pw-btn">${esc(t('resetPw.reset'))}</button>
+        <button class="btn btn--secondary" id="back-to-users-btn2">${esc(t('users.back'))}</button>
       `
     });
     document.getElementById('reset-pw-btn').addEventListener('click', async () => {
       const password = document.getElementById('reset-pw-input').value;
-      if (!password || password.length < 4) return showToast('Password must be at least 4 characters', 'error');
+      if (!password || password.length < 4) return showToast(t('users.pwMin4'), 'error');
       try {
         await apiFetch(`/api/users/${userId}/password`, { method: 'PUT', body: JSON.stringify({ password }) });
-        showToast('Password reset', 'success');
+        showToast(t('resetPw.done'), 'success');
         showUsersModal();
       } catch (e) {
         showToast(e.message, 'error');
@@ -2393,10 +2751,10 @@
   };
 
   window._deleteUser = function(userId, username) {
-    showConfirmModal(`Delete user "${username}"? This cannot be undone.`, async () => {
+    showConfirmModal(t('users.deleteConfirm', { name: username }), async () => {
       try {
         await apiFetch(`/api/users/${userId}`, { method: 'DELETE' });
-        showToast('User deleted', 'success');
+        showToast(t('users.deleted'), 'success');
         showUsersModal();
       } catch (e) {
         showToast(e.message, 'error');
@@ -2409,29 +2767,29 @@
   // =============================================
   function showChangePasswordModal() {
     showModal({
-      title: 'Change Password',
+      title: t('changePw.title'),
       bodyHTML: `
         <div style="display:flex;flex-direction:column;gap:12px">
           <div>
-            <label style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-muted);margin-bottom:4px">Current Password</label>
-            <input type="password" id="cur-pw-input" class="form-input" placeholder="Current password" autocomplete="current-password">
+            <label style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-muted);margin-bottom:4px">${esc(t('changePw.current'))}</label>
+            <input type="password" id="cur-pw-input" class="form-input" placeholder="${esc(t('changePw.currentPlaceholder'))}" autocomplete="current-password">
           </div>
           <div>
-            <label style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-muted);margin-bottom:4px">New Password</label>
-            <input type="password" id="new-pw-input" class="form-input" placeholder="New password" autocomplete="new-password">
+            <label style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-muted);margin-bottom:4px">${esc(t('changePw.new'))}</label>
+            <input type="password" id="new-pw-input" class="form-input" placeholder="${esc(t('changePw.newPlaceholder'))}" autocomplete="new-password">
           </div>
         </div>
       `,
-      footerHTML: '<button class="btn btn--primary" id="change-pw-btn">Change Password</button>'
+      footerHTML: `<button class="btn btn--primary" id="change-pw-btn">${esc(t('changePw.save'))}</button>`
     });
     document.getElementById('change-pw-btn').addEventListener('click', async () => {
       const currentPassword = document.getElementById('cur-pw-input').value;
       const newPassword = document.getElementById('new-pw-input').value;
-      if (!currentPassword || !newPassword) return showToast('Both fields required', 'error');
-      if (newPassword.length < 4) return showToast('Password must be at least 4 characters', 'error');
+      if (!currentPassword || !newPassword) return showToast(t('changePw.bothRequired'), 'error');
+      if (newPassword.length < 4) return showToast(t('users.pwMin4'), 'error');
       try {
         await apiFetch('/api/me/password', { method: 'PUT', body: JSON.stringify({ currentPassword, newPassword }) });
-        showToast('Password changed', 'success');
+        showToast(t('changePw.done'), 'success');
         hideModal();
       } catch (e) {
         showToast(e.message, 'error');
@@ -2477,6 +2835,125 @@
       if (!localStorage.getItem('theme')) applyTheme(getEffectiveTheme());
     });
 
+    // Language toggle
+    function updateStaticLabels() {
+      // Nav labels
+      const navLabels = ['home', 'new-match', 'players', 'history', 'stats'];
+      const navKeys  = ['nav.home', 'nav.new', 'nav.players', 'nav.history', 'nav.stats'];
+      document.querySelectorAll('.bottom-nav__item').forEach((btn, i) => {
+        const label = btn.querySelector('.bottom-nav__label');
+        if (label && navKeys[i]) label.textContent = t(navKeys[i]);
+      });
+      // Sign out button
+      const logoutBtn = document.querySelector('form[action="/logout"] button');
+      if (logoutBtn) logoutBtn.textContent = t('header.signOut');
+      // Static form labels in New Match tab
+      const playersLabel = document.querySelector('#tab-new-match .form-label');
+      if (playersLabel) playersLabel.textContent = t('match.players');
+      const setsLabel = document.querySelectorAll('#tab-new-match .form-label')[1];
+      if (setsLabel) setsLabel.textContent = t('match.sets');
+      const addSetBtn = document.getElementById('add-set-btn');
+      if (addSetBtn) addSetBtn.textContent = t('match.addSet');
+      const resultLabel = document.querySelector('.result-preview__label');
+      if (resultLabel) resultLabel.textContent = t('match.result');
+      const noteLabel = document.querySelector('label[for="match-note"]');
+      if (noteLabel) noteLabel.textContent = t('match.noteLabel');
+      const noteInput = document.getElementById('match-note');
+      if (noteInput) noteInput.placeholder = t('match.notePlaceholder');
+      const saveMatchBtn = document.getElementById('save-match-btn');
+      if (saveMatchBtn && !saveMatchBtn.disabled) saveMatchBtn.textContent = t('match.save');
+      // Players tab button
+      const addPlayerBtn = document.getElementById('add-player-btn');
+      if (addPlayerBtn) addPlayerBtn.textContent = t('players.addPlayer');
+      // Language toggle button text
+      const langBtn = document.getElementById('lang-toggle-btn');
+      if (langBtn) langBtn.textContent = getLang().toUpperCase();
+    }
+
+    const langBtn = document.getElementById('lang-toggle-btn');
+    langBtn.textContent = getLang().toUpperCase();
+    langBtn.addEventListener('click', () => {
+      const next = getLang() === 'en' ? 'de' : 'en';
+      setLang(next);
+      updateStaticLabels();
+      // Re-render active tab
+      const fns = {
+        'home': renderHome, 'new-match': renderNewMatchTab,
+        'players': renderPlayers, 'history': renderHistory, 'stats': renderStats
+      };
+      fns[state.currentTab]?.();
+    });
+
+    // ─── Offline/Online Detection ────────────────────────────────────
+    function updateOfflineBanner() {
+      const banner = document.getElementById('offline-banner');
+      if (state.isOnline) {
+        banner.classList.remove('active');
+      } else {
+        banner.textContent = t('offline.banner');
+        banner.classList.add('active');
+      }
+    }
+
+    function updateSyncBadge() {
+      const badge = document.getElementById('sync-badge');
+      if (state.pendingSync > 0) {
+        badge.textContent = state.pendingSync;
+        badge.classList.add('active');
+      } else {
+        badge.classList.remove('active');
+      }
+    }
+
+    window.addEventListener('online', () => {
+      state.isOnline = true;
+      updateOfflineBanner();
+      // Auto-sync when back online
+      if (navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({ type: 'SYNC_QUEUE' });
+      }
+    });
+
+    window.addEventListener('offline', () => {
+      state.isOnline = false;
+      updateOfflineBanner();
+    });
+
+    // Service worker message handler
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        const { data } = event;
+        if (data.type === 'QUEUED_OFFLINE') {
+          state.pendingSync++;
+          updateSyncBadge();
+          showToast(t('offline.queued'), 'info');
+        } else if (data.type === 'SYNC_COMPLETE') {
+          const { results } = data;
+          state.pendingSync = Math.max(0, state.pendingSync - results.synced - results.failed);
+          updateSyncBadge();
+          if (results.synced > 0 && results.failed === 0) {
+            showToast(t('offline.syncOk', { n: results.synced }), 'success');
+          } else if (results.synced === 0 && results.failed > 0) {
+            showToast(t('offline.syncFail', { n: results.failed }), 'error');
+          } else if (results.synced > 0 && results.failed > 0) {
+            showToast(t('offline.syncMixed', { ok: results.synced, fail: results.failed }), 'info');
+          }
+          // Refresh data after sync
+          refreshAll().then(() => {
+            const fns = {
+              'home': renderHome, 'new-match': renderNewMatchTab,
+              'players': renderPlayers, 'history': renderHistory, 'stats': renderStats
+            };
+            fns[state.currentTab]?.();
+          }).catch(() => {});
+        }
+      });
+    }
+
+    updateOfflineBanner();
+    updateSyncBadge();
+
+    document.getElementById('export-btn').addEventListener('click', showExportModal);
     attachListeners();
     try {
       const [, me, ver] = await Promise.all([
@@ -2497,9 +2974,10 @@
         badge.style.display = '';
       }
     } catch(e) {
-      showToast('Could not load data', 'error');
+      showToast(t('toast.dataError'), 'error');
     }
     renderHome();
+    updateStaticLabels();
     hideLoading();
 
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');

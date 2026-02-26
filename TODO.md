@@ -97,7 +97,7 @@
 
 ## Deployment
 
-- [x] Dockerfile (Node 20 Alpine, production deps only)
+- [x] Dockerfile (Node 22 Alpine, production deps only)
 - [x] Data directory for SQLite volume mount (`/data`)
 
 ## Future Enhancements
@@ -135,9 +135,9 @@
 
 ## Quality of Life
 
-- [ ] Offline support — log matches offline, sync when back online
-- [ ] Data export (CSV/JSON)
-- [ ] Multi-language support (German/English)
+- [x] Offline support — log matches offline, sync when back online
+- [x] Data export (CSV/JSON)
+- [x] Multi-language support (German/English)
 
 ## Locations
 

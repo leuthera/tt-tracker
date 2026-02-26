@@ -16,6 +16,6 @@
     "express-session": "^1.19.0"
   },
   "devDependencies": {
-    "better-sqlite3": "^11.10.0"
+    "better-sqlite3": "^12.6.2"
   }
 }

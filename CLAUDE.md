@@ -11,12 +11,13 @@
 7. **Check CI after pushing.** After every `git push`, run `gh run watch` to monitor the pipeline. If it fails, investigate with `gh run view <id> --log-failed`, diagnose the error, and suggest a fix.
 8. **Update tests for new features.** Every new endpoint, helper, or behavior change needs corresponding tests. Check existing test files for patterns.
 9. **Update docs when relevant.** If a feature changes user-facing behavior, update README.md. If a new env var is added, update .env.example. Keep TODO.md in sync.
+10. **Check for contradictions.** After every implementation step, verify consistency across the project: code vs docs (CLAUDE.md, TODO.md, README.md), code style rules vs actual files, test counts, line count approximations, and environment/config alignment. Fix any contradictions before moving on.
 
 ## Commands
 
 ```bash
 nvm use 22                   # MUST run before tests
-npm test                     # All tests (~91 tests, node:test)
+npm test                     # All tests (~101 tests, node:test)
 npm run test:unit            # Unit tests only (fast)
 npm run test:integration     # Integration tests only (spawns real processes)
 ```
@@ -25,8 +26,9 @@ npm run test:integration     # Integration tests only (spawns real processes)
 
 - **server.js** — Express app (port 8000): auth, sessions, API proxy to db-service, serves static files
 - **db-service.js** — SQLite REST microservice (port 3000, internal only): CRUD via better-sqlite3
-- **index.html** — Entire frontend in one file (~2500 lines, vanilla JS + CSS, no build step)
-- **lib/helpers.js** — Shared utilities (password hashing, DB row transformers, match logic)
+- **index.html** — Entire frontend in one file (~3000 lines, vanilla JS + CSS, no build step)
+- **sw.js** — Service worker: caching, offline queue (IndexedDB), background sync
+- **lib/helpers.js** — Shared utilities (password hashing, DB row transformers, match logic, CSV escaping)
 - **test/helpers/setup.js** — Test utilities (spawn servers, login, create users)
 
 server.js never touches SQLite directly — it calls db-service.js over HTTP with Bearer token auth.

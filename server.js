@@ -207,17 +207,17 @@ const loginHTML = `<!DOCTYPE html>
   <div class="card">
     <div class="logo">
       <h1>🏓 TT Tracker</h1>
-      <p>Sign in to continue</p>
+      <p><span class="lang-en">Sign in to continue</span><span class="lang-de" style="display:none">Anmelden um fortzufahren</span></p>
     </div>
     {{ERROR}}
     <form method="POST" action="/login">
-      <label for="username">Username</label>
+      <label for="username"><span class="lang-en">Username</span><span class="lang-de" style="display:none">Benutzername</span></label>
       <input type="text" id="username" name="username" autocomplete="username"
              autocapitalize="off" required placeholder="Enter username">
-      <label for="password">Password</label>
+      <label for="password"><span class="lang-en">Password</span><span class="lang-de" style="display:none">Passwort</span></label>
       <input type="password" id="password" name="password" autocomplete="current-password"
              required placeholder="Enter password">
-      <button type="submit">Sign In</button>
+      <button type="submit"><span class="lang-en">Sign In</span><span class="lang-de" style="display:none">Anmelden</span></button>
     </form>
   </div>
   <script>
@@ -225,6 +225,13 @@ const loginHTML = `<!DOCTYPE html>
       var saved = localStorage.getItem('theme');
       var theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
       if (theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+      var lang = localStorage.getItem('lang') || 'en';
+      if (lang === 'de') {
+        document.querySelectorAll('.lang-en').forEach(function(el) { el.style.display = 'none'; });
+        document.querySelectorAll('.lang-de').forEach(function(el) { el.style.display = ''; });
+        document.getElementById('username').placeholder = 'Benutzername eingeben';
+        document.getElementById('password').placeholder = 'Passwort eingeben';
+      }
     })();
   </script>
 </body>
@@ -240,14 +247,14 @@ app.post('/login', async (req, res) => {
   if (!checkLoginRateLimit(clientIp)) {
     console.warn(`Rate-limited login attempt from ${clientIp}`);
     return res.status(429).send(loginHTML.replace('{{ERROR}}',
-      '<div class="error">Too many login attempts. Please try again later.</div>'));
+      '<div class="error"><span class="lang-en">Too many login attempts. Please try again later.</span><span class="lang-de" style="display:none">Zu viele Anmeldeversuche. Bitte sp\u00e4ter erneut versuchen.</span></div>'));
   }
 
   const { username, password } = req.body;
   if (typeof username !== 'string' || typeof password !== 'string') {
     console.warn(`Failed login from ${clientIp}: missing fields`);
     return res.send(loginHTML.replace('{{ERROR}}',
-      '<div class="error">Invalid username or password</div>'));
+      '<div class="error"><span class="lang-en">Invalid username or password</span><span class="lang-de" style="display:none">Ung\u00fcltiger Benutzername oder Passwort</span></div>'));
   }
 
   try {
@@ -255,7 +262,7 @@ app.post('/login', async (req, res) => {
     if (!verifyPassword(password, user.password)) {
       console.warn(`Failed login from ${clientIp}: user="${username}"`);
       return res.send(loginHTML.replace('{{ERROR}}',
-        '<div class="error">Invalid username or password</div>'));
+        '<div class="error"><span class="lang-en">Invalid username or password</span><span class="lang-de" style="display:none">Ung\u00fcltiger Benutzername oder Passwort</span></div>'));
     }
     req.session.loggedIn = true;
     req.session.userId = user.id;
@@ -265,7 +272,7 @@ app.post('/login', async (req, res) => {
   } catch (e) {
     console.warn(`Failed login from ${clientIp}: user="${username}"`);
     return res.send(loginHTML.replace('{{ERROR}}',
-      '<div class="error">Invalid username or password</div>'));
+      '<div class="error"><span class="lang-en">Invalid username or password</span><span class="lang-de" style="display:none">Ung\u00fcltiger Benutzername oder Passwort</span></div>'));
   }
 });
 
