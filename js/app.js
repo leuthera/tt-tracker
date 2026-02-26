@@ -159,6 +159,33 @@ function attachListeners() {
     );
   });
 
+  // Doubles toggle
+  document.getElementById('doubles-toggle').addEventListener('click', (e) => {
+    const btn = e.target.closest('.doubles-toggle__btn');
+    if (!btn) return;
+    const isDoubles = btn.dataset.mode === 'doubles';
+    state.newMatch.isDoubles = isDoubles;
+    document.getElementById('doubles-extra').style.display = isDoubles ? '' : 'none';
+    document.querySelectorAll('.doubles-toggle__btn').forEach(b =>
+      b.classList.toggle('doubles-toggle__btn--active', b.dataset.mode === btn.dataset.mode)
+    );
+    if (!isDoubles) {
+      state.newMatch.player3Id = '';
+      state.newMatch.player4Id = '';
+    }
+    updateResultPreview();
+  });
+
+  // Player 3/4 selects
+  document.getElementById('player3-select').addEventListener('change', e => {
+    state.newMatch.player3Id = e.target.value;
+    updateResultPreview();
+  });
+  document.getElementById('player4-select').addEventListener('change', e => {
+    state.newMatch.player4Id = e.target.value;
+    updateResultPreview();
+  });
+
   // Add set
   document.getElementById('add-set-btn').addEventListener('click', () => {
     state.newMatch.sets.push({ p1: 11, p2: 0 });

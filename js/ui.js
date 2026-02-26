@@ -67,6 +67,17 @@ function createMatchCard(match, { onDeleteDone, onEdit, onDetail } = {}) {
   const p1Won = match.winnerId === match.player1Id;
   const p2Won = match.winnerId === match.player2Id;
 
+  let team1Label, team2Label;
+  if (match.isDoubles) {
+    const p3 = getPlayerById(match.player3Id);
+    const p4 = getPlayerById(match.player4Id);
+    team1Label = `${esc(p1Name)} & ${esc(p3?.name || 'Unknown')}`;
+    team2Label = `${esc(p2Name)} & ${esc(p4?.name || 'Unknown')}`;
+  } else {
+    team1Label = esc(p1Name);
+    team2Label = esc(p2Name);
+  }
+
   const card = document.createElement('div');
   card.className = 'match-card';
   if (onDetail) card.style.cursor = 'pointer';
@@ -74,9 +85,10 @@ function createMatchCard(match, { onDeleteDone, onEdit, onDetail } = {}) {
   card.innerHTML = `
     <div class="match-card__header">
       <div class="match-card__players">
-        <span class="match-card__player ${p1Won ? 'match-card__player--winner' : ''}">${esc(p1Name)}</span>
+        ${match.isDoubles ? '<span class="match-card__badge">2v2</span>' : ''}
+        <span class="match-card__player ${p1Won ? 'match-card__player--winner' : ''}">${team1Label}</span>
         <span class="match-card__vs">vs</span>
-        <span class="match-card__player ${p2Won ? 'match-card__player--winner' : ''}">${esc(p2Name)}</span>
+        <span class="match-card__player ${p2Won ? 'match-card__player--winner' : ''}">${team2Label}</span>
       </div>
       <span class="match-card__score">${s1}\u2013${s2}</span>
     </div>

@@ -37,16 +37,21 @@ function exportPlayersCSV() {
 
 function exportMatchesCSV() {
   const matches = loadMatches();
-  const rows = ['ID,Date,Player 1,Player 2,Sets,Winner,Note'];
+  const rows = ['ID,Date,Type,Player 1,Player 2,Player 3,Player 4,Sets,Winner,Note'];
   for (const m of matches) {
     const p1 = getPlayerById(m.player1Id);
     const p2 = getPlayerById(m.player2Id);
+    const p3 = m.player3Id ? getPlayerById(m.player3Id) : null;
+    const p4 = m.player4Id ? getPlayerById(m.player4Id) : null;
     const winner = m.winnerId ? (getPlayerById(m.winnerId)?.name || m.winnerId) : 'Draw';
     rows.push([
       csvEscape(m.id),
       csvEscape(new Date(m.date).toISOString()),
+      csvEscape(m.isDoubles ? 'Doubles' : 'Singles'),
       csvEscape(p1?.name || m.player1Id),
       csvEscape(p2?.name || m.player2Id),
+      csvEscape(p3?.name || ''),
+      csvEscape(p4?.name || ''),
       csvEscape(formatSets(m.sets)),
       csvEscape(winner),
       csvEscape(m.note)
@@ -60,10 +65,14 @@ function exportJSON() {
   const matches = loadMatches().map(m => {
     const p1 = getPlayerById(m.player1Id);
     const p2 = getPlayerById(m.player2Id);
+    const p3 = m.player3Id ? getPlayerById(m.player3Id) : null;
+    const p4 = m.player4Id ? getPlayerById(m.player4Id) : null;
     return {
       ...m,
       player1Name: p1?.name || null,
       player2Name: p2?.name || null,
+      player3Name: p3?.name || null,
+      player4Name: p4?.name || null,
       winnerName: m.winnerId ? (getPlayerById(m.winnerId)?.name || null) : null
     };
   });

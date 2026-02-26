@@ -62,10 +62,21 @@
       <div class="card card--padded">
         <div class="form-group">
           <label class="form-label">Players</label>
+          <div class="doubles-toggle" id="doubles-toggle">
+            <button class="doubles-toggle__btn doubles-toggle__btn--active" data-mode="singles">Singles</button>
+            <button class="doubles-toggle__btn" data-mode="doubles">Doubles</button>
+          </div>
           <div class="player-select-pair">
             <select class="form-select" id="player1-select" aria-label="Player 1"></select>
             <div class="vs-divider">VS</div>
             <select class="form-select" id="player2-select" aria-label="Player 2"></select>
+          </div>
+          <div class="doubles-extra" id="doubles-extra" style="display:none">
+            <div class="player-select-pair">
+              <select class="form-select" id="player3-select" aria-label="Player 3"></select>
+              <div class="vs-divider">&amp;</div>
+              <select class="form-select" id="player4-select" aria-label="Player 4"></select>
+            </div>
           </div>
         </div>
         <div class="form-group">

@@ -8,17 +8,22 @@ function countSetWins(sets) {
   }, { p1: 0, p2: 0 });
 }
 
+function isPlayerInMatch(m, playerId) {
+  return m.player1Id === playerId || m.player2Id === playerId ||
+    m.player3Id === playerId || m.player4Id === playerId;
+}
+
 function computeStats(playerId, matches) {
-  const playerMatches = matches.filter(
-    m => m.player1Id === playerId || m.player2Id === playerId
-  );
+  const playerMatches = matches.filter(m => isPlayerInMatch(m, playerId));
 
   let wins = 0, losses = 0, draws = 0, setsWon = 0, setsLost = 0, pointsWon = 0, pointsLost = 0;
   const recentForm = [];
 
   for (const m of playerMatches) {
-    const isP1 = m.player1Id === playerId;
-    const won = m.winnerId === playerId;
+    const isP1Side = m.player1Id === playerId || m.player3Id === playerId;
+    const won = m.isDoubles
+      ? (m.winnerId && (m.winnerId === m.player1Id ? isP1Side : !isP1Side))
+      : m.winnerId === playerId;
     const isDraw = !m.winnerId;
     if (isDraw) {
       draws++;
@@ -32,8 +37,8 @@ function computeStats(playerId, matches) {
     }
 
     for (const s of (m.sets || [])) {
-      const mine = isP1 ? Number(s.p1) : Number(s.p2);
-      const theirs = isP1 ? Number(s.p2) : Number(s.p1);
+      const mine = isP1Side ? Number(s.p1) : Number(s.p2);
+      const theirs = isP1Side ? Number(s.p2) : Number(s.p1);
       if (mine > theirs) setsWon++;
       else if (theirs > mine) setsLost++;
       pointsWon += mine;
@@ -64,6 +69,9 @@ function getLeaderboard(players, matches) {
   return players
     .map(p => ({ player: p, stats: computeStats(p.id, matches) }))
     .sort((a, b) => {
+      const eloA = a.player.eloRating || 1200;
+      const eloB = b.player.eloRating || 1200;
+      if (eloB !== eloA) return eloB - eloA;
       if (b.stats.winRate !== a.stats.winRate) return b.stats.winRate - a.stats.winRate;
       return b.stats.wins - a.stats.wins;
     });
@@ -71,13 +79,15 @@ function getLeaderboard(players, matches) {
 
 function computeH2H(p1Id, p2Id, matches) {
   const h2hMatches = matches.filter(m =>
-    (m.player1Id === p1Id && m.player2Id === p2Id) ||
-    (m.player1Id === p2Id && m.player2Id === p1Id)
+    isPlayerInMatch(m, p1Id) && isPlayerInMatch(m, p2Id)
   );
   let p1Wins = 0, p2Wins = 0;
   for (const m of h2hMatches) {
-    if (m.winnerId === p1Id) p1Wins++;
-    else if (m.winnerId === p2Id) p2Wins++;
+    if (!m.winnerId) continue;
+    const p1Side = m.player1Id === p1Id || m.player3Id === p1Id;
+    const winnerIsP1Side = m.winnerId === m.player1Id;
+    if (p1Side === winnerIsP1Side) p1Wins++;
+    else p2Wins++;
   }
   return { p1Wins, p2Wins, total: h2hMatches.length };
 }

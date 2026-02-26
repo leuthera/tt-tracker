@@ -5,7 +5,8 @@ const assert = require('node:assert/strict');
 const {
   hashPassword, verifyPassword,
   countSetWins, determineWinner,
-  dbToPlayer, dbToMatch, dbToComment, dbToUser,
+  dbToPlayer, dbToMatch, dbToComment, dbToUser, dbToEloHistory,
+  eloExpected, eloChange, calculateMatchElo,
   csvEscape,
 } = require('../../lib/helpers');
 
@@ -66,10 +67,87 @@ describe('determineWinner', () => {
   });
 });
 
+describe('eloExpected', () => {
+  it('returns 0.5 for equal ratings', () => {
+    assert.equal(eloExpected(1200, 1200), 0.5);
+  });
+
+  it('returns > 0.5 for higher rating', () => {
+    assert.ok(eloExpected(1400, 1200) > 0.5);
+  });
+
+  it('returns < 0.5 for lower rating', () => {
+    assert.ok(eloExpected(1000, 1200) < 0.5);
+  });
+});
+
+describe('eloChange', () => {
+  it('win increases rating', () => {
+    const newRating = eloChange(1200, 1200, 1);
+    assert.ok(newRating > 1200);
+  });
+
+  it('loss decreases rating', () => {
+    const newRating = eloChange(1200, 1200, 0);
+    assert.ok(newRating < 1200);
+  });
+
+  it('K=32 delta for equal ratings — win gives +16', () => {
+    const newRating = eloChange(1200, 1200, 1, 32);
+    assert.equal(newRating, 1216);
+  });
+
+  it('K=32 delta for equal ratings — loss gives -16', () => {
+    const newRating = eloChange(1200, 1200, 0, 32);
+    assert.equal(newRating, 1184);
+  });
+});
+
+describe('calculateMatchElo', () => {
+  it('handles singles match correctly', () => {
+    const match = { player1_id: 'p1', player2_id: 'p2', winner_id: 'p1', is_doubles: 0 };
+    const ratings = { p1: 1200, p2: 1200 };
+    const entries = calculateMatchElo(match, ratings);
+    assert.equal(entries.length, 2);
+    assert.equal(entries[0].playerId, 'p1');
+    assert.ok(entries[0].ratingAfter > 1200);
+    assert.equal(entries[1].playerId, 'p2');
+    assert.ok(entries[1].ratingAfter < 1200);
+  });
+
+  it('handles doubles match correctly', () => {
+    const match = {
+      player1_id: 'p1', player2_id: 'p2',
+      player3_id: 'p3', player4_id: 'p4',
+      winner_id: 'p1', is_doubles: 1
+    };
+    const ratings = { p1: 1200, p2: 1200, p3: 1200, p4: 1200 };
+    const entries = calculateMatchElo(match, ratings);
+    assert.equal(entries.length, 4);
+    // Team 1 (p1 + p3) won
+    const p1Entry = entries.find(e => e.playerId === 'p1');
+    const p3Entry = entries.find(e => e.playerId === 'p3');
+    const p2Entry = entries.find(e => e.playerId === 'p2');
+    const p4Entry = entries.find(e => e.playerId === 'p4');
+    assert.ok(p1Entry.ratingAfter > 1200);
+    assert.ok(p3Entry.ratingAfter > 1200);
+    assert.ok(p2Entry.ratingAfter < 1200);
+    assert.ok(p4Entry.ratingAfter < 1200);
+    // Equal delta for team members
+    assert.equal(p1Entry.ratingAfter - p1Entry.ratingBefore, p3Entry.ratingAfter - p3Entry.ratingBefore);
+    assert.equal(p2Entry.ratingAfter - p2Entry.ratingBefore, p4Entry.ratingAfter - p4Entry.ratingBefore);
+  });
+});
+
 describe('dbToPlayer', () => {
   it('transforms a db row to API format', () => {
+    const row = { id: 'p_1', name: 'Alice', elo_rating: 1250, created_at: 1700000000 };
+    assert.deepEqual(dbToPlayer(row), { id: 'p_1', name: 'Alice', eloRating: 1250, createdAt: 1700000000 });
+  });
+
+  it('defaults eloRating to 1200 when not set', () => {
     const row = { id: 'p_1', name: 'Alice', created_at: 1700000000 };
-    assert.deepEqual(dbToPlayer(row), { id: 'p_1', name: 'Alice', createdAt: 1700000000 });
+    assert.equal(dbToPlayer(row).eloRating, 1200);
   });
 });
 
@@ -90,6 +168,9 @@ describe('dbToMatch', () => {
     assert.equal(result.winnerId, 'p_1');
     assert.equal(result.note, 'Great match');
     assert.equal(result.creatorId, 'u_1');
+    assert.equal(result.isDoubles, false);
+    assert.equal(result.player3Id, null);
+    assert.equal(result.player4Id, null);
   });
 
   it('returns null winnerId when not set', () => {
@@ -118,6 +199,35 @@ describe('dbToMatch', () => {
       sets: '[]', winner_id: null, note: ''
     };
     assert.equal(dbToMatch(row).creatorId, null);
+  });
+
+  it('transforms doubles match correctly', () => {
+    const row = {
+      id: 'm_1', date: 1700000000,
+      player1_id: 'p_1', player2_id: 'p_2',
+      player3_id: 'p_3', player4_id: 'p_4',
+      sets: '[{"p1":11,"p2":5}]',
+      winner_id: 'p_1', note: '',
+      is_doubles: 1
+    };
+    const result = dbToMatch(row);
+    assert.equal(result.isDoubles, true);
+    assert.equal(result.player3Id, 'p_3');
+    assert.equal(result.player4Id, 'p_4');
+  });
+});
+
+describe('dbToEloHistory', () => {
+  it('transforms a db row to API format', () => {
+    const row = {
+      id: 'elo_1', player_id: 'p_1', match_id: 'm_1',
+      rating_before: 1200, rating_after: 1216, created_at: '1700000000'
+    };
+    const result = dbToEloHistory(row);
+    assert.deepEqual(result, {
+      id: 'elo_1', playerId: 'p_1', matchId: 'm_1',
+      ratingBefore: 1200, ratingAfter: 1216, createdAt: '1700000000'
+    });
   });
 });
 

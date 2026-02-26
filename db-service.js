@@ -61,6 +61,20 @@ if (!matchCols.includes('location_id')) {
 if (!matchCols.includes('creator_id')) {
   db.exec('ALTER TABLE matches ADD COLUMN creator_id TEXT');
 }
+if (!matchCols.includes('is_doubles')) {
+  db.exec('ALTER TABLE matches ADD COLUMN is_doubles INTEGER DEFAULT 0');
+}
+if (!matchCols.includes('player3_id')) {
+  db.exec('ALTER TABLE matches ADD COLUMN player3_id TEXT REFERENCES players(id)');
+}
+if (!matchCols.includes('player4_id')) {
+  db.exec('ALTER TABLE matches ADD COLUMN player4_id TEXT REFERENCES players(id)');
+}
+
+const playerCols = db.pragma('table_info(players)').map(c => c.name);
+if (!playerCols.includes('elo_rating')) {
+  db.exec('ALTER TABLE players ADD COLUMN elo_rating INTEGER DEFAULT 1200');
+}
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS comments (
@@ -72,6 +86,15 @@ db.exec(`
     created_at INTEGER NOT NULL,
     FOREIGN KEY (match_id) REFERENCES matches(id)
   );
+
+  CREATE TABLE IF NOT EXISTS elo_history (
+    id TEXT PRIMARY KEY,
+    player_id TEXT NOT NULL REFERENCES players(id),
+    match_id TEXT NOT NULL REFERENCES matches(id),
+    rating_before INTEGER NOT NULL,
+    rating_after INTEGER NOT NULL,
+    created_at TEXT NOT NULL
+  );
 `);
 
 const stmts = {
@@ -79,13 +102,13 @@ const stmts = {
   getPlayer:          db.prepare('SELECT * FROM players WHERE id = ?'),
   insertPlayer:       db.prepare('INSERT INTO players (id, name, created_at) VALUES (?, ?, ?)'),
   deletePlayer:       db.prepare('DELETE FROM players WHERE id = ?'),
-  deletePlayerMatches: db.prepare('DELETE FROM matches WHERE player1_id = ? OR player2_id = ?'),
-  playerHasMatch:     db.prepare('SELECT 1 FROM matches WHERE player1_id = ? OR player2_id = ? LIMIT 1'),
+  deletePlayerMatches: db.prepare('DELETE FROM matches WHERE player1_id = ? OR player2_id = ? OR player3_id = ? OR player4_id = ?'),
+  playerHasMatch:     db.prepare('SELECT 1 FROM matches WHERE player1_id = ? OR player2_id = ? OR player3_id = ? OR player4_id = ? LIMIT 1'),
   getMatch:           db.prepare('SELECT * FROM matches WHERE id = ?'),
   getMatches:         db.prepare('SELECT * FROM matches ORDER BY date DESC'),
-  getMatchesByPlayer: db.prepare('SELECT * FROM matches WHERE player1_id = ? OR player2_id = ? ORDER BY date DESC'),
-  insertMatch:        db.prepare('INSERT INTO matches (id, date, player1_id, player2_id, sets, winner_id, note, location_id, creator_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'),
-  updateMatch:        db.prepare('UPDATE matches SET sets = ?, winner_id = ?, note = ?, location_id = ? WHERE id = ?'),
+  getMatchesByPlayer: db.prepare('SELECT * FROM matches WHERE player1_id = ? OR player2_id = ? OR player3_id = ? OR player4_id = ? ORDER BY date DESC'),
+  insertMatch:        db.prepare('INSERT INTO matches (id, date, player1_id, player2_id, sets, winner_id, note, location_id, creator_id, is_doubles, player3_id, player4_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'),
+  updateMatch:        db.prepare('UPDATE matches SET sets = ?, winner_id = ?, note = ?, location_id = ?, is_doubles = ?, player3_id = ?, player4_id = ? WHERE id = ?'),
   deleteMatch:        db.prepare('DELETE FROM matches WHERE id = ?'),
   // Comments
   getCommentsByMatch: db.prepare('SELECT * FROM comments WHERE match_id = ? ORDER BY created_at ASC'),
@@ -109,6 +132,13 @@ const stmts = {
   deleteLocation:     db.prepare('DELETE FROM locations WHERE id = ?'),
   locationHasMatch:   db.prepare('SELECT 1 FROM matches WHERE location_id = ? LIMIT 1'),
   clearLocationFromMatches: db.prepare('UPDATE matches SET location_id = NULL WHERE location_id = ?'),
+  // ELO
+  resetAllElo:        db.prepare('UPDATE players SET elo_rating = 1200'),
+  updatePlayerElo:    db.prepare('UPDATE players SET elo_rating = ? WHERE id = ?'),
+  insertEloHistory:   db.prepare('INSERT INTO elo_history (id, player_id, match_id, rating_before, rating_after, created_at) VALUES (?, ?, ?, ?, ?, ?)'),
+  deleteAllEloHistory: db.prepare('DELETE FROM elo_history'),
+  getEloHistoryByPlayer: db.prepare('SELECT * FROM elo_history WHERE player_id = ? ORDER BY created_at ASC'),
+  getAllMatchesByDate: db.prepare('SELECT * FROM matches ORDER BY date ASC'),
 };
 
 function generateId(prefix) {
@@ -161,9 +191,17 @@ app.post('/players', (req, res) => {
 app.delete('/players/:id', (req, res) => {
   const { id } = req.params;
   const force = req.query.force === 'true';
-  if (stmts.playerHasMatch.get(id, id)) {
+  if (stmts.playerHasMatch.get(id, id, id, id)) {
     if (!force) return res.status(409).json({ error: 'Player has matches' });
-    stmts.deletePlayerMatches.run(id, id);
+    // Clean up elo_history and comments for affected matches before deleting them
+    const matches = db.prepare('SELECT id FROM matches WHERE player1_id = ? OR player2_id = ? OR player3_id = ? OR player4_id = ?').all(id, id, id, id);
+    for (const m of matches) {
+      stmts.deleteCommentsByMatch.run(m.id);
+      db.prepare('DELETE FROM elo_history WHERE match_id = ?').run(m.id);
+    }
+    // Also clean up elo_history for this player (from other matches)
+    db.prepare('DELETE FROM elo_history WHERE player_id = ?').run(id);
+    stmts.deletePlayerMatches.run(id, id, id, id);
   }
   stmts.deletePlayer.run(id);
   res.json({ ok: true });
@@ -173,7 +211,7 @@ app.delete('/players/:id', (req, res) => {
 app.get('/matches', (req, res) => {
   const { player } = req.query;
   const rows = player
-    ? stmts.getMatchesByPlayer.all(player, player)
+    ? stmts.getMatchesByPlayer.all(player, player, player, player)
     : stmts.getMatches.all();
   res.json(rows);
 });
@@ -185,10 +223,10 @@ app.get('/matches/:id', (req, res) => {
 });
 
 app.post('/matches', (req, res) => {
-  const { date, player1_id, player2_id, sets, winner_id, note, location_id, creator_id } = req.body;
+  const { date, player1_id, player2_id, sets, winner_id, note, location_id, creator_id, is_doubles, player3_id, player4_id } = req.body;
   const id = generateId('m');
   try {
-    stmts.insertMatch.run(id, date, player1_id, player2_id, sets, winner_id, note || '', location_id || null, creator_id || null);
+    stmts.insertMatch.run(id, date, player1_id, player2_id, sets, winner_id, note || '', location_id || null, creator_id || null, is_doubles ? 1 : 0, player3_id || null, player4_id || null);
     res.json(stmts.getMatch.get(id));
   } catch (e) {
     console.error('Insert match error:', e.message);
@@ -200,13 +238,16 @@ app.put('/matches/:id', (req, res) => {
   const { id } = req.params;
   const row = stmts.getMatch.get(id);
   if (!row) return res.status(404).json({ error: 'Match not found' });
-  const { sets, winner_id, note, location_id } = req.body;
+  const { sets, winner_id, note, location_id, is_doubles, player3_id, player4_id } = req.body;
   try {
     stmts.updateMatch.run(
       sets ?? row.sets,
       winner_id !== undefined ? winner_id : row.winner_id,
       note !== undefined ? note : row.note,
       location_id !== undefined ? location_id : row.location_id,
+      is_doubles !== undefined ? (is_doubles ? 1 : 0) : row.is_doubles,
+      player3_id !== undefined ? (player3_id || null) : row.player3_id,
+      player4_id !== undefined ? (player4_id || null) : row.player4_id,
       id
     );
     res.json(stmts.getMatch.get(id));
@@ -218,6 +259,7 @@ app.put('/matches/:id', (req, res) => {
 
 app.delete('/matches/:id', (req, res) => {
   stmts.deleteCommentsByMatch.run(req.params.id);
+  db.prepare('DELETE FROM elo_history WHERE match_id = ?').run(req.params.id);
   stmts.deleteMatch.run(req.params.id);
   res.json({ ok: true });
 });
@@ -326,6 +368,57 @@ app.delete('/locations/:id/image', (req, res) => {
   if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
   db.prepare('UPDATE locations SET image = ? WHERE id = ?').run('', req.params.id);
   res.json({ ok: true });
+});
+
+// ─── ELO ────────────────────────────────────────────────────────────────────
+const { calculateMatchElo } = require('./lib/helpers');
+
+app.get('/elo/history/:playerId', (req, res) => {
+  res.json(stmts.getEloHistoryByPlayer.all(req.params.playerId));
+});
+
+app.post('/elo/recalculate', (req, res) => {
+  try {
+    // Reset all ELO to 1200
+    stmts.resetAllElo.run();
+    stmts.deleteAllEloHistory.run();
+
+    // Fetch all matches ordered by date ASC
+    const matches = stmts.getAllMatchesByDate.all();
+
+    // Build a ratings map from all players
+    const players = stmts.getPlayers.all();
+    const ratings = {};
+    for (const p of players) ratings[p.id] = 1200;
+
+    // Process each match
+    for (const match of matches) {
+      if (!match.winner_id) continue; // skip draws — no ELO change
+
+      const entries = calculateMatchElo(match, ratings);
+      for (const entry of entries) {
+        ratings[entry.playerId] = entry.ratingAfter;
+        stmts.insertEloHistory.run(
+          generateId('elo'),
+          entry.playerId,
+          match.id,
+          entry.ratingBefore,
+          entry.ratingAfter,
+          match.date.toString()
+        );
+      }
+    }
+
+    // Update player ratings
+    for (const [playerId, rating] of Object.entries(ratings)) {
+      stmts.updatePlayerElo.run(rating, playerId);
+    }
+
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('ELO recalculate error:', e.message);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 // ─── USERS ───────────────────────────────────────────────────────────────────

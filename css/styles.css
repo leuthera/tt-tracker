@@ -723,7 +723,7 @@ html, body {
 
 .leaderboard__row {
   display: grid;
-  grid-template-columns: 28px 1fr auto auto;
+  grid-template-columns: 28px 1fr auto auto auto;
   align-items: center;
   gap: 10px;
   padding: 12px 14px;
@@ -1255,3 +1255,92 @@ input[type=number] { -moz-appearance: textfield; }
 
 /* Adjust bottom nav for 6 items */
 .bottom-nav__label { font-size: 9px; }
+
+/* === DOUBLES TOGGLE === */
+.doubles-toggle {
+  display: flex;
+  gap: 0;
+  margin-bottom: 10px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.doubles-toggle__btn {
+  flex: 1;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  font-family: inherit;
+}
+
+.doubles-toggle__btn--active {
+  background: var(--primary);
+  color: #fff;
+}
+
+.doubles-extra {
+  margin-top: 10px;
+}
+
+/* === MATCH CARD BADGE === */
+.match-card__badge {
+  font-size: 10px;
+  font-weight: 700;
+  background: var(--primary);
+  color: #fff;
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+/* === LEADERBOARD ELO === */
+.leaderboard__elo {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+  min-width: 36px;
+  text-align: right;
+}
+
+/* === ELO HISTORY === */
+.elo-history {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.elo-history-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-size: 12px;
+}
+
+.elo-history-item__rating {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.elo-history-item__delta {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.elo-history-item--up .elo-history-item__delta {
+  color: var(--win);
+}
+
+.elo-history-item--down .elo-history-item__delta {
+  color: var(--loss);
+}

@@ -5,7 +5,7 @@ const state = {
   players: [],
   matches: [],
   locations: [],
-  newMatch: { player1Id: '', player2Id: '', sets: [{p1: 11, p2: 0}], note: '', locationId: '' },
+  newMatch: { player1Id: '', player2Id: '', player3Id: '', player4Id: '', isDoubles: false, sets: [{p1: 11, p2: 0}], note: '', locationId: '' },
   historyFilter: '',
   statsFilter: '',
   me: { role: 'user', username: '' },
@@ -90,7 +90,7 @@ async function addMatch(data) {
     method: 'POST',
     body: JSON.stringify(data)
   });
-  await refreshMatches();
+  await Promise.all([refreshMatches(), refreshPlayers()]);
   return match;
 }
 
@@ -99,13 +99,13 @@ async function updateMatch(id, data) {
     method: 'PUT',
     body: JSON.stringify(data)
   });
-  await refreshMatches();
+  await Promise.all([refreshMatches(), refreshPlayers()]);
   return match;
 }
 
 async function deleteMatch(id) {
   await apiFetch(`/api/matches/${id}`, { method: 'DELETE' });
-  await refreshMatches();
+  await Promise.all([refreshMatches(), refreshPlayers()]);
 }
 
 // ─── COMMENT CRUD ──────────────────────────────────────────────────────────
@@ -184,6 +184,12 @@ async function deleteLocationImage(id) {
   await refreshLocations();
 }
 
+// ─── ELO HISTORY ───────────────────────────────────────────────────────────
+
+async function getEloHistory(playerId) {
+  return apiFetch(`/api/players/${playerId}/elo-history`);
+}
+
 // ─── CLIENT ERROR REPORTING ─────────────────────────────────────────────────
 
 function logClientError({ message, stack, url, line, col }) {
@@ -202,6 +208,7 @@ export {
   addPlayer, deletePlayer,
   addMatch, updateMatch, deleteMatch,
   getComments, addComment, deleteComment,
+  getEloHistory,
   addLocation, updateLocation, deleteLocation,
   uploadLocationImage, deleteLocationImage,
   logClientError

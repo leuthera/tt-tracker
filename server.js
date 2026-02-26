@@ -45,7 +45,7 @@ const net = require('net');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
-const { hashPassword, verifyPassword, dbToPlayer, dbToMatch, dbToComment, dbToLocation, dbToUser, determineWinner } = require('./lib/helpers');
+const { hashPassword, verifyPassword, dbToPlayer, dbToMatch, dbToComment, dbToLocation, dbToUser, dbToEloHistory, determineWinner } = require('./lib/helpers');
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const ADMIN_USER = process.env.ADMIN_USER || 'admin';
@@ -71,6 +71,10 @@ async function dbFetch(path, options) {
     throw err;
   }
   return body;
+}
+
+async function recalculateElo() {
+  await dbFetch('/elo/recalculate', { method: 'POST' });
 }
 
 // ─── EXPRESS APP ──────────────────────────────────────────────────────────────
@@ -402,16 +406,27 @@ app.get('/api/matches', requireAuth, async (req, res) => {
 });
 
 app.post('/api/matches', requireAuth, async (req, res) => {
-  const { player1Id, player2Id, sets, note, locationId } = req.body;
+  const { player1Id, player2Id, sets, note, locationId, isDoubles, player3Id, player4Id } = req.body;
   if (!player1Id || !player2Id) return res.status(400).json({ error: 'Both players required' });
   if (player1Id === player2Id) return res.status(400).json({ error: 'Players must be different' });
+
+  // Doubles validation
+  if (isDoubles) {
+    if (!player3Id || !player4Id) return res.status(400).json({ error: 'All four players required for doubles' });
+    const allIds = [player1Id, player2Id, player3Id, player4Id];
+    if (new Set(allIds).size !== 4) return res.status(400).json({ error: 'All four players must be different' });
+  }
 
   // Validate players exist
   try {
     await dbFetch(`/players/${player1Id}`);
     await dbFetch(`/players/${player2Id}`);
+    if (isDoubles) {
+      await dbFetch(`/players/${player3Id}`);
+      await dbFetch(`/players/${player4Id}`);
+    }
   } catch (e) {
-    return res.status(400).json({ error: 'One or both players not found' });
+    return res.status(400).json({ error: 'One or more players not found' });
   }
 
   if (!Array.isArray(sets) || sets.length === 0) return res.status(400).json({ error: 'At least one set required' });
@@ -448,8 +463,12 @@ app.post('/api/matches', requireAuth, async (req, res) => {
         note: trimmedNote,
         location_id: locationId || null,
         creator_id: req.session.userId,
+        is_doubles: isDoubles ? 1 : 0,
+        player3_id: player3Id || null,
+        player4_id: player4Id || null,
       }),
     });
+    recalculateElo().catch(e => console.error('ELO recalculate error:', e.message));
     res.json(dbToMatch(match));
   } catch (e) {
     res.status(500).json({ error: 'Database error' });
@@ -471,7 +490,17 @@ app.put('/api/matches/:id', requireAuth, async (req, res) => {
   const isAdmin = req.session.role === 'admin';
   if (!isCreator && !isAdmin) return res.status(403).json({ error: 'Not authorized to edit this match' });
 
-  const { sets, note, locationId } = req.body;
+  const { sets, note, locationId, isDoubles, player3Id, player4Id } = req.body;
+
+  // Doubles validation if switching to doubles
+  const finalIsDoubles = isDoubles !== undefined ? isDoubles : !!existing.is_doubles;
+  if (finalIsDoubles) {
+    const p3 = player3Id !== undefined ? player3Id : existing.player3_id;
+    const p4 = player4Id !== undefined ? player4Id : existing.player4_id;
+    if (!p3 || !p4) return res.status(400).json({ error: 'All four players required for doubles' });
+    const allIds = [existing.player1_id, existing.player2_id, p3, p4];
+    if (new Set(allIds).size !== 4) return res.status(400).json({ error: 'All four players must be different' });
+  }
 
   // Validate sets if provided
   if (sets !== undefined) {
@@ -509,8 +538,12 @@ app.put('/api/matches/:id', requireAuth, async (req, res) => {
         winner_id: winnerId,
         note: note !== undefined ? (note || '').trim() : existing.note,
         location_id: locationId !== undefined ? (locationId || null) : existing.location_id,
+        is_doubles: isDoubles !== undefined ? (isDoubles ? 1 : 0) : undefined,
+        player3_id: player3Id !== undefined ? (player3Id || null) : undefined,
+        player4_id: player4Id !== undefined ? (player4Id || null) : undefined,
       }),
     });
+    recalculateElo().catch(e => console.error('ELO recalculate error:', e.message));
     res.json(dbToMatch(match));
   } catch (e) {
     res.status(500).json({ error: 'Database error' });
@@ -520,6 +553,7 @@ app.put('/api/matches/:id', requireAuth, async (req, res) => {
 app.delete('/api/matches/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
     const result = await dbFetch(`/matches/${req.params.id}`, { method: 'DELETE' });
+    recalculateElo().catch(e => console.error('ELO recalculate error:', e.message));
     res.json(result);
   } catch (e) {
     res.status(500).json({ error: 'Database error' });
@@ -564,6 +598,16 @@ app.delete('/api/comments/:id', requireAuth, requireAdmin, async (req, res) => {
     res.json(result);
   } catch (e) {
     if (e.status === 404) return res.status(404).json({ error: 'Comment not found' });
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ─── API: ELO HISTORY ────────────────────────────────────────────────────────
+app.get('/api/players/:id/elo-history', requireAuth, async (req, res) => {
+  try {
+    const rows = await dbFetch(`/elo/history/${req.params.id}`);
+    res.json(rows.map(dbToEloHistory));
+  } catch (e) {
     res.status(500).json({ error: 'Database error' });
   }
 });

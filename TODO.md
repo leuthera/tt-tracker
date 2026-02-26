@@ -48,7 +48,7 @@
 - [x] Per-player: recent form (last 5 matches as W/L/D badges)
 - [x] Per-player: win/loss streak with emoji indicators
 - [x] Head-to-head records against each opponent
-- [x] Leaderboard ranked by win rate, then total wins
+- [x] Leaderboard ranked by ELO rating, then win rate, then total wins
 - [x] Medal badges for top 3 (gold/silver/bronze colors)
 - [x] Leaderboard rows clickable to drill into player stats
 
@@ -85,7 +85,9 @@
 - [x] `DELETE /api/players/:id` — delete player (409 if matches exist; `?force=true` to cascade)
 - [x] `GET /api/matches` — list all matches (supports `?player=` filter)
 - [x] `POST /api/matches` — create match (with full validation)
+- [x] `PUT /api/matches/:id` — edit match (creator or admin)
 - [x] `DELETE /api/matches/:id` — delete match
+- [x] `GET /api/players/:id/elo-history` — player ELO history
 - [x] `GET /api/locations` — list all locations
 - [x] `POST /api/locations` — create location (name, optional lat/lng)
 - [x] `PUT /api/locations/:id` — update location name/coordinates
@@ -106,6 +108,8 @@
 - [x] Locations table with name, lat/lng, image flag
 - [x] Matches table `location_id` column (optional FK to locations)
 - [x] Sets stored as JSON string in matches table
+- [x] ELO history table tracking rating changes per match
+- [x] Doubles support: `is_doubles`, `player3_id`, `player4_id` columns on matches
 - [x] Configurable DB_PATH via environment variable
 
 ## Deployment
@@ -129,8 +133,8 @@
 
 ## Gameplay
 
-- [ ] ELO rating system with progression tracking
-- [ ] Doubles matches (2v2)
+- [x] ELO rating system with progression tracking
+- [x] Doubles matches (2v2)
 - [ ] Tournament mode (round-robin or bracket)
 - [ ] Live scoring — score a match point-by-point in real time
 

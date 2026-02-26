@@ -2,7 +2,7 @@
 
 import { t } from './i18n.js';
 import { esc, mkAvatar } from './helpers.js';
-import { state, loadPlayers, loadMatches, getPlayerById, loadLocations, addPlayer, deletePlayer, addMatch, updateMatch, getComments, addComment, deleteComment, apiFetch } from './state.js';
+import { state, loadPlayers, loadMatches, getPlayerById, loadLocations, addPlayer, deletePlayer, addMatch, updateMatch, getComments, addComment, deleteComment, getEloHistory, apiFetch } from './state.js';
 import { countSetWins, computeStats, getLeaderboard, computeH2H } from './stats.js';
 import { showModal, hideModal, showConfirmModal, showToast, createMatchCard, populateFilter, navigateTo } from './ui.js';
 
@@ -114,6 +114,7 @@ function renderTopPlayers() {
       <div class="leaderboard__row">
         <span class="leaderboard__rank ${rankClass[i]||''}">${i+1}</span>
         <span class="leaderboard__name">${esc(player.name)}</span>
+        <span class="leaderboard__elo">${player.eloRating || 1200}</span>
         <span class="leaderboard__record">${stats.wins}W ${stats.losses}L</span>
         <span class="leaderboard__winrate">${stats.winRate}%</span>
       </div>
@@ -135,6 +136,16 @@ function renderNewMatchTab() {
   const saveBtn = document.getElementById('save-match-btn');
   saveBtn.disabled = false;
   saveBtn.textContent = t('match.save');
+  // Restore doubles toggle state
+  const doublesExtra = document.getElementById('doubles-extra');
+  const toggleBtns = document.querySelectorAll('.doubles-toggle__btn');
+  if (state.newMatch.isDoubles) {
+    doublesExtra.style.display = '';
+    toggleBtns.forEach(b => b.classList.toggle('doubles-toggle__btn--active', b.dataset.mode === 'doubles'));
+  } else {
+    doublesExtra.style.display = 'none';
+    toggleBtns.forEach(b => b.classList.toggle('doubles-toggle__btn--active', b.dataset.mode === 'singles'));
+  }
 }
 
 function populateLocationSelect() {
@@ -158,6 +169,15 @@ function populatePlayerSelects() {
   s2.innerHTML = placeholder + opts;
   s1.value = state.newMatch.player1Id;
   s2.value = state.newMatch.player2Id;
+
+  const s3 = document.getElementById('player3-select');
+  const s4 = document.getElementById('player4-select');
+  if (s3 && s4) {
+    s3.innerHTML = placeholder + opts;
+    s4.innerHTML = placeholder + opts;
+    s3.value = state.newMatch.player3Id;
+    s4.value = state.newMatch.player4Id;
+  }
 }
 
 function renderSetRows() {
@@ -203,8 +223,17 @@ function updateResultPreview() {
   const { p1: w1, p2: w2 } = countSetWins(state.newMatch.sets);
   const p1 = getPlayerById(p1Id);
   const p2 = getPlayerById(p2Id);
-  const n1 = p1?.name || 'P1';
-  const n2 = p2?.name || 'P2';
+
+  let n1, n2;
+  if (state.newMatch.isDoubles) {
+    const p3 = getPlayerById(document.getElementById('player3-select')?.value || '');
+    const p4 = getPlayerById(document.getElementById('player4-select')?.value || '');
+    n1 = (p1?.name || 'P1') + ' & ' + (p3?.name || 'P3');
+    n2 = (p2?.name || 'P2') + ' & ' + (p4?.name || 'P4');
+  } else {
+    n1 = p1?.name || 'P1';
+    n2 = p2?.name || 'P2';
+  }
 
   if (w1 > w2) {
     preview.className = 'result-preview result-preview--winning';
@@ -224,6 +253,15 @@ function validateNewMatch() {
 
   if (!p1Id || !p2Id) return t('match.errorBothPlayers');
   if (p1Id === p2Id) return t('match.errorDifferent');
+
+  if (state.newMatch.isDoubles) {
+    const p3Id = document.getElementById('player3-select').value;
+    const p4Id = document.getElementById('player4-select').value;
+    if (!p3Id || !p4Id) return t('match.errorAllFourPlayers');
+    const ids = new Set([p1Id, p2Id, p3Id, p4Id]);
+    if (ids.size !== 4) return t('match.errorDifferentDoubles');
+  }
+
   if (state.newMatch.sets.length === 0) return t('match.errorOneSet');
 
   for (let i = 0; i < state.newMatch.sets.length; i++) {
@@ -244,14 +282,20 @@ async function submitMatch() {
   saveBtn.textContent = t('match.saving');
 
   try {
-    await addMatch({
+    const payload = {
       player1Id: document.getElementById('player1-select').value,
       player2Id: document.getElementById('player2-select').value,
       sets: [...state.newMatch.sets],
       note: document.getElementById('match-note').value,
       locationId: state.newMatch.locationId || undefined
-    });
-    state.newMatch = { player1Id: '', player2Id: '', sets: [{p1: 11, p2: 0}], note: '', locationId: '' };
+    };
+    if (state.newMatch.isDoubles) {
+      payload.isDoubles = true;
+      payload.player3Id = document.getElementById('player3-select').value;
+      payload.player4Id = document.getElementById('player4-select').value;
+    }
+    await addMatch(payload);
+    state.newMatch = { player1Id: '', player2Id: '', player3Id: '', player4Id: '', isDoubles: false, sets: [{p1: 11, p2: 0}], note: '', locationId: '' };
     showToast(t('match.saved'), 'success');
     await navigateTo('home', _renderFns);
   } catch(e) {
@@ -383,11 +427,13 @@ function showPlayerDetailModal(playerId) {
         </div>
       </div>
       <div class="stats-grid">
+        <div class="stat-card"><div class="stat-card__value">${player.eloRating || 1200}</div><div class="stat-card__label">${esc(t('playerDetail.elo'))}</div></div>
         <div class="stat-card"><div class="stat-card__value">${stats.winRate}%</div><div class="stat-card__label">${esc(t('playerDetail.winRate'))}</div></div>
         <div class="stat-card"><div class="stat-card__value">${stats.wins}\u2013${stats.losses}</div><div class="stat-card__label">${esc(t('playerDetail.wl'))}</div></div>
         <div class="stat-card"><div class="stat-card__value">${stats.setsWon}</div><div class="stat-card__label">${esc(t('playerDetail.setsWon'))}</div></div>
         <div class="stat-card"><div class="stat-card__value">${stats.pointsWon}</div><div class="stat-card__label">${esc(t('playerDetail.pointsWon'))}</div></div>
       </div>
+      <div id="elo-history-container"></div>
       ${formBadges ? `
         <div class="section__title" style="margin-bottom:8px">${esc(t('playerDetail.recentForm'))}</div>
         <div class="form-badges" style="margin-bottom:16px">${formBadges}</div>
@@ -400,10 +446,27 @@ function showPlayerDetailModal(playerId) {
     footerHTML: state.me.role === 'admin' ? `<button class="btn btn--danger" id="modal-delete-player">${esc(t('playerDetail.delete'))}</button>` : ''
   });
 
+  // Load ELO history asynchronously
+  getEloHistory(playerId).then(history => {
+    const container = document.getElementById('elo-history-container');
+    if (!container || history.length === 0) return;
+    let html = `<div class="section__title" style="margin-bottom:8px">${esc(t('playerDetail.eloHistory'))}</div><div class="elo-history">`;
+    for (const entry of history) {
+      const delta = entry.ratingAfter - entry.ratingBefore;
+      const cls = delta > 0 ? 'elo-history-item--up' : delta < 0 ? 'elo-history-item--down' : '';
+      html += `<div class="elo-history-item ${cls}">
+        <span class="elo-history-item__rating">${entry.ratingAfter}</span>
+        <span class="elo-history-item__delta">${delta > 0 ? '+' : ''}${delta}</span>
+      </div>`;
+    }
+    html += `</div>`;
+    container.innerHTML = html;
+  }).catch(() => {});
+
   if (state.me.role !== 'admin') return;
   document.getElementById('modal-delete-player').addEventListener('click', () => {
     hideModal();
-    const playerMatches = loadMatches().filter(m => m.player1Id === playerId || m.player2Id === playerId);
+    const playerMatches = loadMatches().filter(m => m.player1Id === playerId || m.player2Id === playerId || m.player3Id === playerId || m.player4Id === playerId);
     const hasMatches = playerMatches.length > 0;
     const msg = hasMatches
       ? t('playerDetail.deleteWithMatches', { n: playerMatches.length, name: player.name })
@@ -526,6 +589,7 @@ function renderLeaderboard() {
       <div class="leaderboard__row" data-pid="${esc(player.id)}">
         <span class="leaderboard__rank ${rankClass[i]||''}">${i+1}</span>
         <span class="leaderboard__name">${esc(player.name)}</span>
+        <span class="leaderboard__elo">${player.eloRating || 1200}</span>
         <span class="leaderboard__record">${stats.wins}W ${stats.losses}L</span>
         <span class="leaderboard__winrate">${stats.winRate}%</span>
       </div>
@@ -582,6 +646,7 @@ function renderPlayerStats(playerId) {
     </div>
     ${streakHTML}
     <div class="stats-grid">
+      <div class="stat-card"><div class="stat-card__value">${player.eloRating || 1200}</div><div class="stat-card__label">${esc(t('playerDetail.elo'))}</div></div>
       <div class="stat-card"><div class="stat-card__value">${stats.winRate}%</div><div class="stat-card__label">${esc(t('playerDetail.winRate'))}</div></div>
       <div class="stat-card"><div class="stat-card__value">${stats.wins}\u2013${stats.losses}</div><div class="stat-card__label">${esc(t('playerDetail.wl'))}</div></div>
       <div class="stat-card"><div class="stat-card__value">${stats.setsWon}</div><div class="stat-card__label">${esc(t('playerDetail.setsWon'))}</div></div>
@@ -610,6 +675,8 @@ function showEditMatchModal(match, onSaved) {
   const p1 = getPlayerById(match.player1Id);
   const p2 = getPlayerById(match.player2Id);
   const locations = loadLocations();
+  const players = loadPlayers();
+  let editIsDoubles = !!match.isDoubles;
 
   const setsHTML = match.sets.map((s, i) => `
     <div class="set-row">
@@ -626,11 +693,27 @@ function showEditMatchModal(match, onSaved) {
     `<option value="${esc(l.id)}" ${match.locationId === l.id ? 'selected' : ''}>${esc(l.name)}</option>`
   ).join('');
 
+  const playerOpts = players.map(p => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('');
+  const placeholder = `<option value="">${esc(t('match.selectPlayer'))}</option>`;
+
   showModal({
     title: t('match.edit'),
     bodyHTML: `
       <div style="margin-bottom:12px;color:var(--text-muted);font-size:14px">
         ${esc(p1?.name || 'Unknown')} vs ${esc(p2?.name || 'Unknown')}
+      </div>
+      <div class="form-group">
+        <div class="doubles-toggle" id="edit-doubles-toggle">
+          <button class="doubles-toggle__btn ${!editIsDoubles ? 'doubles-toggle__btn--active' : ''}" data-mode="singles">${esc(t('match.singles'))}</button>
+          <button class="doubles-toggle__btn ${editIsDoubles ? 'doubles-toggle__btn--active' : ''}" data-mode="doubles">${esc(t('match.doubles'))}</button>
+        </div>
+        <div id="edit-doubles-extra" style="${editIsDoubles ? '' : 'display:none'}">
+          <div class="player-select-pair" style="margin-top:8px">
+            <select class="form-select" id="edit-player3-select">${placeholder}${playerOpts}</select>
+            <div class="vs-divider">&amp;</div>
+            <select class="form-select" id="edit-player4-select">${placeholder}${playerOpts}</select>
+          </div>
+        </div>
       </div>
       <div class="form-group">
         <label class="form-label">${esc(t('match.sets'))}</label>
@@ -652,6 +735,21 @@ function showEditMatchModal(match, onSaved) {
     footerHTML: `<button class="btn btn--primary" id="edit-match-save">${esc(t('match.editSave'))}</button>`
   });
 
+  // Set initial player3/4 values
+  if (match.player3Id) document.getElementById('edit-player3-select').value = match.player3Id;
+  if (match.player4Id) document.getElementById('edit-player4-select').value = match.player4Id;
+
+  // Doubles toggle
+  document.getElementById('edit-doubles-toggle').addEventListener('click', (e) => {
+    const btn = e.target.closest('.doubles-toggle__btn');
+    if (!btn) return;
+    editIsDoubles = btn.dataset.mode === 'doubles';
+    document.getElementById('edit-doubles-extra').style.display = editIsDoubles ? '' : 'none';
+    document.querySelectorAll('#edit-doubles-toggle .doubles-toggle__btn').forEach(b =>
+      b.classList.toggle('doubles-toggle__btn--active', b.dataset.mode === btn.dataset.mode)
+    );
+  });
+
   document.getElementById('edit-match-save').addEventListener('click', async () => {
     const btn = document.getElementById('edit-match-save');
     const container = document.getElementById('edit-sets-container');
@@ -661,10 +759,25 @@ function showEditMatchModal(match, onSaved) {
       sets.push({ p1: Number(inputs[i].value) || 0, p2: Number(inputs[i+1].value) || 0 });
     }
 
-    // Basic validation
+    // Set validation
     for (let i = 0; i < sets.length; i++) {
       if (sets[i].p1 === sets[i].p2) {
         showToast(t('match.errorSetDraw', { n: i + 1 }), 'error');
+        return;
+      }
+    }
+
+    // Doubles validation
+    if (editIsDoubles) {
+      const p3Id = document.getElementById('edit-player3-select').value;
+      const p4Id = document.getElementById('edit-player4-select').value;
+      if (!p3Id || !p4Id) {
+        showToast(t('match.errorAllFourPlayers'), 'error');
+        return;
+      }
+      const ids = new Set([match.player1Id, match.player2Id, p3Id, p4Id]);
+      if (ids.size !== 4) {
+        showToast(t('match.errorDifferentDoubles'), 'error');
         return;
       }
     }
@@ -673,11 +786,20 @@ function showEditMatchModal(match, onSaved) {
     btn.textContent = t('match.editSaving');
 
     try {
-      await updateMatch(match.id, {
+      const payload = {
         sets,
         note: document.getElementById('edit-match-note').value,
         locationId: document.getElementById('edit-match-location').value || null,
-      });
+        isDoubles: editIsDoubles,
+      };
+      if (editIsDoubles) {
+        payload.player3Id = document.getElementById('edit-player3-select').value;
+        payload.player4Id = document.getElementById('edit-player4-select').value;
+      } else {
+        payload.player3Id = null;
+        payload.player4Id = null;
+      }
+      await updateMatch(match.id, payload);
       hideModal();
       showToast(t('match.editSaved'), 'success');
       if (onSaved) onSaved();
@@ -698,8 +820,17 @@ function showMatchDetailModal(match) {
   const { formatSets, relativeTime } = _helperCache;
   const location = match.locationId ? loadLocations().find(l => l.id === match.locationId) : null;
 
+  let titleText;
+  if (match.isDoubles) {
+    const p3 = getPlayerById(match.player3Id);
+    const p4 = getPlayerById(match.player4Id);
+    titleText = `${p1?.name || '?'} & ${p3?.name || '?'} vs ${p2?.name || '?'} & ${p4?.name || '?'}`;
+  } else {
+    titleText = `${p1?.name || 'Unknown'} vs ${p2?.name || 'Unknown'}`;
+  }
+
   showModal({
-    title: `${p1?.name || 'Unknown'} vs ${p2?.name || 'Unknown'}`,
+    title: titleText,
     bodyHTML: `
       <div style="text-align:center;margin-bottom:12px">
         <div style="font-size:24px;font-weight:700">${s1}\u2013${s2}</div>

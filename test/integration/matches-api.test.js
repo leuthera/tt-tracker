@@ -198,7 +198,7 @@ describe('matches API', () => {
     const res = await api(`/api/matches?player=${p3.id}`);
     const body = await res.json();
     assert.ok(body.length >= 1);
-    assert.ok(body.every(m => m.player1Id === p3.id || m.player2Id === p3.id));
+    assert.ok(body.every(m => m.player1Id === p3.id || m.player2Id === p3.id || m.player3Id === p3.id || m.player4Id === p3.id));
   });
 
   // ── Delete ──────────────────────────────────────────────────────────────────
@@ -258,6 +258,64 @@ describe('matches API', () => {
     });
     const body = await res.json();
     assert.ok(body.creatorId, 'creatorId should be set');
+  });
+
+  // ── Doubles matches ──────────────────────────────────────────────────────
+  it('POST /api/matches doubles — success with 4 players', async () => {
+    // Create two extra players for doubles
+    const r3 = await apiJson('/api/players', {
+      method: 'POST', body: JSON.stringify({ name: 'DoublesP3' }),
+    });
+    const p3 = await r3.json();
+    const r4 = await apiJson('/api/players', {
+      method: 'POST', body: JSON.stringify({ name: 'DoublesP4' }),
+    });
+    const p4 = await r4.json();
+
+    const res = await apiJson('/api/matches', {
+      method: 'POST',
+      body: JSON.stringify({
+        player1Id: p1.id, player2Id: p2.id,
+        player3Id: p3.id, player4Id: p4.id,
+        isDoubles: true,
+        sets: [{ p1: 11, p2: 5 }, { p1: 11, p2: 7 }],
+      }),
+    });
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.isDoubles, true);
+    assert.equal(body.player3Id, p3.id);
+    assert.equal(body.player4Id, p4.id);
+    assert.equal(body.winnerId, p1.id);
+  });
+
+  it('POST /api/matches doubles — 400 if missing player3/4', async () => {
+    const res = await apiJson('/api/matches', {
+      method: 'POST',
+      body: JSON.stringify({
+        player1Id: p1.id, player2Id: p2.id,
+        isDoubles: true,
+        sets: [{ p1: 11, p2: 5 }],
+      }),
+    });
+    assert.equal(res.status, 400);
+    const body = await res.json();
+    assert.ok(body.error.includes('four players'));
+  });
+
+  it('POST /api/matches doubles — 400 if duplicate players', async () => {
+    const res = await apiJson('/api/matches', {
+      method: 'POST',
+      body: JSON.stringify({
+        player1Id: p1.id, player2Id: p2.id,
+        player3Id: p1.id, player4Id: p2.id,
+        isDoubles: true,
+        sets: [{ p1: 11, p2: 5 }],
+      }),
+    });
+    assert.equal(res.status, 400);
+    const body = await res.json();
+    assert.ok(body.error.includes('different'));
   });
 
   // ── Edit match ─────────────────────────────────────────────────────────────

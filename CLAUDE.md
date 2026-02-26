@@ -17,7 +17,7 @@
 
 ```bash
 nvm use 22                   # MUST run before tests
-npm test                     # All tests (~158 tests, node:test)
+npm test                     # All tests (~200 tests, node:test)
 npm run test:unit            # Unit tests only (fast)
 npm run test:integration     # Integration tests only (spawns real processes)
 npm run lint                 # ESLint — no-undef + no-unused-vars only
@@ -40,7 +40,7 @@ npm run lint                 # ESLint — no-undef + no-unused-vars only
   - `locations.js` — locations tab rendering, add/edit/detail modals, image upload
   - `app.js` — entry point: event listeners, theme, offline/sync, init
 - **sw.js** — Service worker: caching, offline queue (IndexedDB), background sync
-- **lib/helpers.js** — Shared server utilities (password hashing, DB row transformers, match logic, CSV escaping)
+- **lib/helpers.js** — Shared server utilities (password hashing, DB row transformers, match logic, ELO rating calculations, CSV escaping)
 - **test/helpers/setup.js** — Test utilities (spawn servers, login, create users)
 
 server.js never touches SQLite directly — it calls db-service.js over HTTP with Bearer token auth.
