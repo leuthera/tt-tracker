@@ -10,6 +10,11 @@ const {
   csvEscape,
   filterMatchesByDateRange,
   computeWinRateOverTime,
+  ACHIEVEMENT_DEFS,
+  computeAchievements,
+  hasComeback,
+  hasCleanSweep,
+  hasRival,
 } = require('../../lib/helpers');
 
 describe('hashPassword / verifyPassword', () => {
@@ -395,5 +400,182 @@ describe('computeWinRateOverTime', () => {
     const result = computeWinRateOverTime('p3', matches);
     assert.equal(result.length, 1);
     assert.equal(result[0].winRate, 100); // p3 is on p1's team, p1 won
+  });
+});
+
+describe('ACHIEVEMENT_DEFS', () => {
+  it('has 13 achievement definitions', () => {
+    assert.equal(ACHIEVEMENT_DEFS.length, 13);
+  });
+
+  it('each has id and icon', () => {
+    for (const def of ACHIEVEMENT_DEFS) {
+      assert.ok(def.id, 'missing id');
+      assert.ok(def.icon, 'missing icon');
+    }
+  });
+});
+
+describe('computeAchievements', () => {
+  const zeroStats = { wins: 0, losses: 0, draws: 0, totalMatches: 0, winRate: 0, setsWon: 0, setsLost: 0, pointsWon: 0, pointsLost: 0, streak: 0, recentForm: [] };
+  const players = [{ id: 'p1' }, { id: 'p2' }, { id: 'p3' }];
+
+  it('all locked for zero stats and no matches', () => {
+    const result = computeAchievements('p1', zeroStats, 1200, [], players);
+    assert.equal(result.length, 13);
+    assert.ok(result.every(a => !a.unlocked));
+  });
+
+  it('unlocks first_win at 1 win', () => {
+    const stats = { ...zeroStats, wins: 1, totalMatches: 1 };
+    const result = computeAchievements('p1', stats, 1200, [], players);
+    assert.ok(result.find(a => a.id === 'first_win').unlocked);
+    assert.ok(!result.find(a => a.id === 'getting_started').unlocked);
+  });
+
+  it('unlocks getting_started at 5 wins', () => {
+    const stats = { ...zeroStats, wins: 5, totalMatches: 5 };
+    const result = computeAchievements('p1', stats, 1200, [], players);
+    assert.ok(result.find(a => a.id === 'getting_started').unlocked);
+  });
+
+  it('unlocks champion at 25 wins', () => {
+    const stats = { ...zeroStats, wins: 25, totalMatches: 30 };
+    const result = computeAchievements('p1', stats, 1200, [], players);
+    assert.ok(result.find(a => a.id === 'champion').unlocked);
+  });
+
+  it('unlocks legend at 50 wins', () => {
+    const stats = { ...zeroStats, wins: 50, totalMatches: 60 };
+    const result = computeAchievements('p1', stats, 1200, [], players);
+    assert.ok(result.find(a => a.id === 'legend').unlocked);
+  });
+
+  it('unlocks on_fire at 5 streak', () => {
+    const stats = { ...zeroStats, streak: 5 };
+    const result = computeAchievements('p1', stats, 1200, [], players);
+    assert.ok(result.find(a => a.id === 'on_fire').unlocked);
+    assert.ok(!result.find(a => a.id === 'unstoppable').unlocked);
+  });
+
+  it('unlocks unstoppable at 10 streak', () => {
+    const stats = { ...zeroStats, streak: 10 };
+    const result = computeAchievements('p1', stats, 1200, [], players);
+    assert.ok(result.find(a => a.id === 'unstoppable').unlocked);
+  });
+
+  it('unlocks rising_star at 1300 ELO', () => {
+    const result = computeAchievements('p1', zeroStats, 1300, [], players);
+    assert.ok(result.find(a => a.id === 'rising_star').unlocked);
+    assert.ok(!result.find(a => a.id === 'elite').unlocked);
+  });
+
+  it('unlocks elite at 1500 ELO', () => {
+    const result = computeAchievements('p1', zeroStats, 1500, [], players);
+    assert.ok(result.find(a => a.id === 'elite').unlocked);
+  });
+
+  it('unlocks dedicated at 25 matches', () => {
+    const stats = { ...zeroStats, totalMatches: 25 };
+    const result = computeAchievements('p1', stats, 1200, [], players);
+    assert.ok(result.find(a => a.id === 'dedicated').unlocked);
+  });
+
+  it('unlocks century at 100 matches', () => {
+    const stats = { ...zeroStats, totalMatches: 100 };
+    const result = computeAchievements('p1', stats, 1200, [], players);
+    assert.ok(result.find(a => a.id === 'century').unlocked);
+  });
+});
+
+describe('hasComeback', () => {
+  it('returns true when player won after losing first 2 sets', () => {
+    const matches = [{
+      player1Id: 'p1', player2Id: 'p2', winnerId: 'p1', isDoubles: false,
+      sets: [{ p1: 5, p2: 11 }, { p1: 8, p2: 11 }, { p1: 11, p2: 5 }, { p1: 11, p2: 3 }, { p1: 11, p2: 7 }]
+    }];
+    assert.ok(hasComeback('p1', matches));
+  });
+
+  it('returns false when player won without being 0-2 down', () => {
+    const matches = [{
+      player1Id: 'p1', player2Id: 'p2', winnerId: 'p1', isDoubles: false,
+      sets: [{ p1: 11, p2: 5 }, { p1: 5, p2: 11 }, { p1: 11, p2: 7 }]
+    }];
+    assert.ok(!hasComeback('p1', matches));
+  });
+
+  it('returns false when player lost the match', () => {
+    const matches = [{
+      player1Id: 'p1', player2Id: 'p2', winnerId: 'p2', isDoubles: false,
+      sets: [{ p1: 5, p2: 11 }, { p1: 8, p2: 11 }]
+    }];
+    assert.ok(!hasComeback('p1', matches));
+  });
+
+  it('returns false for match with fewer than 3 sets', () => {
+    const matches = [{
+      player1Id: 'p1', player2Id: 'p2', winnerId: 'p1', isDoubles: false,
+      sets: [{ p1: 11, p2: 5 }, { p1: 11, p2: 7 }]
+    }];
+    assert.ok(!hasComeback('p1', matches));
+  });
+});
+
+describe('hasCleanSweep', () => {
+  it('returns true when all sets won 11-0', () => {
+    const matches = [{
+      player1Id: 'p1', player2Id: 'p2', winnerId: 'p1', isDoubles: false,
+      sets: [{ p1: 11, p2: 0 }, { p1: 11, p2: 0 }, { p1: 11, p2: 0 }]
+    }];
+    assert.ok(hasCleanSweep('p1', matches));
+  });
+
+  it('returns false when one set is not 11-0', () => {
+    const matches = [{
+      player1Id: 'p1', player2Id: 'p2', winnerId: 'p1', isDoubles: false,
+      sets: [{ p1: 11, p2: 0 }, { p1: 11, p2: 1 }]
+    }];
+    assert.ok(!hasCleanSweep('p1', matches));
+  });
+
+  it('returns false when player lost', () => {
+    const matches = [{
+      player1Id: 'p1', player2Id: 'p2', winnerId: 'p2', isDoubles: false,
+      sets: [{ p1: 0, p2: 11 }, { p1: 0, p2: 11 }]
+    }];
+    assert.ok(!hasCleanSweep('p1', matches));
+  });
+});
+
+describe('hasRival', () => {
+  it('returns true when 10+ matches vs same opponent', () => {
+    const matches = [];
+    for (let i = 0; i < 10; i++) {
+      matches.push({ player1Id: 'p1', player2Id: 'p2', winnerId: 'p1', isDoubles: false, sets: [{ p1: 11, p2: 5 }] });
+    }
+    assert.ok(hasRival('p1', matches, [{ id: 'p1' }, { id: 'p2' }]));
+  });
+
+  it('returns false when fewer than 10 matches vs any opponent', () => {
+    const matches = [];
+    for (let i = 0; i < 5; i++) {
+      matches.push({ player1Id: 'p1', player2Id: 'p2', winnerId: 'p1', isDoubles: false, sets: [{ p1: 11, p2: 5 }] });
+    }
+    for (let i = 0; i < 4; i++) {
+      matches.push({ player1Id: 'p1', player2Id: 'p3', winnerId: 'p1', isDoubles: false, sets: [{ p1: 11, p2: 5 }] });
+    }
+    assert.ok(!hasRival('p1', matches, [{ id: 'p1' }, { id: 'p2' }, { id: 'p3' }]));
+  });
+
+  it('handles doubles matches in rival count', () => {
+    const matches = [];
+    for (let i = 0; i < 10; i++) {
+      matches.push({
+        player1Id: 'p1', player2Id: 'p2', player3Id: 'p3', player4Id: 'p4',
+        winnerId: 'p1', isDoubles: true, sets: [{ p1: 11, p2: 5 }]
+      });
+    }
+    assert.ok(hasRival('p1', matches, [{ id: 'p1' }, { id: 'p2' }, { id: 'p3' }, { id: 'p4' }]));
   });
 });

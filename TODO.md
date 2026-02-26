@@ -158,8 +158,8 @@
 
 ## Social & Engagement
 
-- [ ] Achievements/badges (first win, 10-game streak, comeback king, etc.)
-- [ ] Shareable match result cards (generated image)
+- [x] Achievements/badges (first win, 10-game streak, comeback king, etc.)
+- [x] Shareable match result cards (generated image)
 - [ ] Challenge system — players can challenge each other to a match
 
 ## Architecture

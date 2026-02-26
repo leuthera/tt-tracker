@@ -62,6 +62,8 @@ flowchart TD
 - **Season filtering** — filter stats by date range (all time, year, 3 months, 30 days)
 - **Player comparison** — side-by-side stat comparison with H2H record and proportional bars
 - **Leaderboard** — ranked by ELO, then win rate, then total wins with medal badges
+- **Achievements** — 13 unlockable badges (win milestones, streaks, ELO, comeback king, clean sweep, rival)
+- **Share cards** — download shareable match result cards as PNG images
 - **Comments** — comment section on each match
 - **Locations** — venue management with GPS auto-detect and image upload
 - **Multi-language** — English and German

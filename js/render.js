@@ -3,7 +3,7 @@
 import { t } from './i18n.js';
 import { esc, mkAvatar } from './helpers.js';
 import { state, loadPlayers, loadMatches, getPlayerById, loadLocations, addPlayer, deletePlayer, addMatch, updateMatch, getComments, addComment, deleteComment, getEloHistory, apiFetch } from './state.js';
-import { countSetWins, computeStats, getLeaderboard, computeH2H, filterMatchesByDateRange } from './stats.js';
+import { countSetWins, computeStats, getLeaderboard, computeH2H, filterMatchesByDateRange, computeAchievements } from './stats.js';
 import { showModal, hideModal, showConfirmModal, showToast, createMatchCard, populateFilter, navigateTo } from './ui.js';
 import { renderEloChart, renderWinRateChart } from './charts.js';
 
@@ -383,6 +383,24 @@ function showAddPlayerModal() {
   input.addEventListener('keydown', e => { if (e.key === 'Enter') save(); });
 }
 
+function renderAchievementBadges(playerId, stats, eloRating, matches, players) {
+  const achievements = computeAchievements(playerId, stats, eloRating, matches, players);
+  const unlocked = achievements.filter(a => a.unlocked).length;
+  const total = achievements.length;
+  let html = `<div class="section__title" style="margin-bottom:8px">${esc(t('achievements.title', { n: unlocked, total }))}</div>`;
+  html += '<div class="achievements__grid">';
+  for (const a of achievements) {
+    const cls = a.unlocked ? 'achievements__badge' : 'achievements__badge achievements__badge--locked';
+    const desc = t(`achievements.${a.id}_desc`);
+    html += `<div class="${cls}" title="${esc(desc)}">
+      <span class="achievements__icon">${a.icon}</span>
+      <span class="achievements__name">${esc(t(`achievements.${a.id}`))}</span>
+    </div>`;
+  }
+  html += '</div>';
+  return html;
+}
+
 function showPlayerDetailModal(playerId) {
   const player = getPlayerById(playerId);
   if (!player) return;
@@ -435,6 +453,7 @@ function showPlayerDetailModal(playerId) {
         <div class="stat-card"><div class="stat-card__value">${stats.pointsWon}</div><div class="stat-card__label">${esc(t('playerDetail.pointsWon'))}</div></div>
       </div>
       <div id="elo-history-container"></div>
+      ${renderAchievementBadges(playerId, stats, player.eloRating || 1200, matches, loadPlayers())}
       ${formBadges ? `
         <div class="section__title" style="margin-bottom:8px">${esc(t('playerDetail.recentForm'))}</div>
         <div class="form-badges" style="margin-bottom:16px">${formBadges}</div>
@@ -667,6 +686,7 @@ function renderPlayerStats(playerId) {
       <div class="chart-container__title">${esc(t('stats.winRateChart'))}</div>
       <div id="stats-winrate-chart"></div>
     </div>
+    ${renderAchievementBadges(playerId, stats, player.eloRating || 1200, matches, loadPlayers())}
     ${formBadges ? `
       <div class="section__title" style="margin-bottom:8px">${esc(t('playerDetail.recentForm'))}</div>
       <div class="form-badges" style="margin-bottom:16px">${formBadges}</div>
@@ -868,10 +888,16 @@ function showMatchDetailModal(match) {
         <button class="btn btn--primary" id="comment-send" style="white-space:nowrap">${esc(t('comments.send'))}</button>
       </div>
     `,
-    footerHTML: ''
+    footerHTML: `<button class="btn btn--secondary" id="modal-share-match">${esc(t('match.share'))}</button>`
   });
 
   loadAndRenderComments(match.id);
+
+  document.getElementById('modal-share-match').addEventListener('click', async () => {
+    const { downloadMatchCard } = await import('./sharecard.js');
+    downloadMatchCard(match);
+    showToast(t('match.shareDownloaded'), 'success');
+  });
 
   document.getElementById('comment-send').addEventListener('click', () => submitComment(match.id));
   document.getElementById('comment-input').addEventListener('keydown', e => {
