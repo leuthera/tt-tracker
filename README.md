@@ -53,6 +53,19 @@ flowchart TD
     PROXY --> SQLITE[("SQLite")]
 ```
 
+## Features
+
+- **Match tracking** — log singles or doubles (2v2) matches with per-set scores, optional notes and location
+- **ELO ratings** — automatic ELO rating system (K=32, start 1200) with full recalculation on match create/edit/delete
+- **Player stats** — win/loss record, win rate, sets, points, recent form, streaks, head-to-head records
+- **Leaderboard** — ranked by ELO, then win rate, then total wins with medal badges
+- **Comments** — comment section on each match
+- **Locations** — venue management with GPS auto-detect and image upload
+- **Multi-language** — English and German
+- **Offline support** — log matches offline, sync when back online
+- **Data export** — CSV and JSON export
+- **PWA** — installable progressive web app with dark mode
+
 ## Stack
 
 - Node.js + Express + SQLite (better-sqlite3)

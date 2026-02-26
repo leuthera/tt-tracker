@@ -95,6 +95,18 @@
 - [x] `POST /api/locations/:id/image` — upload location photo (base64)
 - [x] `GET /api/locations/:id/image` — serve location photo
 - [x] `DELETE /api/locations/:id/image` — remove location photo
+- [x] `GET /api/matches/:id/comments` — list match comments
+- [x] `POST /api/matches/:id/comments` — add comment to match
+- [x] `DELETE /api/comments/:id` — delete comment (admin only)
+- [x] `GET /api/me` — current user info
+- [x] `PUT /api/me/password` — change own password
+- [x] `GET /api/users` — list users (admin only)
+- [x] `POST /api/users` — create user (admin only)
+- [x] `PUT /api/users/:id/password` — reset user password (admin only)
+- [x] `DELETE /api/users/:id` — delete user (admin only)
+- [x] `GET /healthz` — health check
+- [x] `GET /api/version` — build SHA
+- [x] `POST /api/client-errors` — log frontend errors
 - [x] `GET /login` — login page
 - [x] `POST /login` — authenticate
 - [x] `POST /logout` — sign out
