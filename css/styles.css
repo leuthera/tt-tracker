@@ -378,9 +378,14 @@ html, body {
   opacity: 0.45;
   font-size: 16px;
   cursor: pointer;
-  padding: 2px 4px;
+  padding: 12px;
   line-height: 1;
   flex-shrink: 0;
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .match-card__delete:hover {
   opacity: 1;
@@ -393,9 +398,14 @@ html, body {
   opacity: 0.45;
   font-size: 14px;
   cursor: pointer;
-  padding: 2px 4px;
+  padding: 12px;
   line-height: 1;
   flex-shrink: 0;
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .match-card__edit:hover {
   opacity: 1;
@@ -435,9 +445,14 @@ html, body {
   opacity: 0.45;
   font-size: 14px;
   cursor: pointer;
-  padding: 0 4px;
+  padding: 8px 12px;
   margin-left: auto;
   line-height: 1;
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .comment-item__delete:hover {
   opacity: 1;
@@ -523,7 +538,7 @@ html, body {
   padding: 12px 14px;
   border: 1.5px solid var(--border);
   border-radius: var(--radius-md);
-  font-size: 15px;
+  font-size: 16px;
   font-family: inherit;
   color: var(--text);
   background: var(--surface);

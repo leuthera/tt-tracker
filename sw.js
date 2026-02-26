@@ -1,8 +1,7 @@
 'use strict';
 
-const CACHE_NAME = 'tt-tracker-v8';
+const CACHE_NAME = 'tt-tracker-v10';
 const APP_SHELL = [
-  '/',
   '/manifest.json',
   '/icon.svg',
   '/css/styles.css',
@@ -184,8 +183,10 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          }
           return response;
         })
         .catch(() => caches.match(request))
@@ -193,16 +194,17 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Static assets — cache-first (ignoreSearch so ?v=hash cache-busters match)
+  // Static assets — network-first with cache fallback (ensures fresh code after deploys)
   event.respondWith(
-    caches.match(request, { ignoreSearch: true }).then((cached) => {
-      if (cached) return cached;
-      return fetch(request).then((response) => {
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+    fetch(request)
+      .then((response) => {
+        if (response.ok) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+        }
         return response;
-      });
-    })
+      })
+      .catch(() => caches.match(request, { ignoreSearch: true }))
   );
 });
 
@@ -211,5 +213,11 @@ self.addEventListener('fetch', (event) => {
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SYNC_QUEUE') {
     event.waitUntil(syncQueue());
+  } else if (event.data && event.data.type === 'GET_QUEUE_COUNT') {
+    getAllQueued().then(entries => {
+      event.source.postMessage({ type: 'QUEUE_COUNT', count: entries.length });
+    }).catch(() => {
+      event.source.postMessage({ type: 'QUEUE_COUNT', count: 0 });
+    });
   }
 });

@@ -52,7 +52,11 @@ function generateMatchCard(match) {
     ctx.fillStyle = 'rgba(255,255,255,0.3)';
     const bw = ctx.measureText('2v2').width + 12;
     ctx.beginPath();
-    ctx.roundRect(badgeX - bw / 2, 25, bw, 20, 4);
+    if (ctx.roundRect) {
+      ctx.roundRect(badgeX - bw / 2, 25, bw, 20, 4);
+    } else {
+      ctx.rect(badgeX - bw / 2, 25, bw, 20);
+    }
     ctx.fill();
     ctx.fillStyle = '#fff';
     ctx.fillText('2v2', badgeX, 39);

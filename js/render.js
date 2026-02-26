@@ -1,7 +1,7 @@
 // ─── Render Functions ───────────────────────────────────────────────────────
 
 import { t } from './i18n.js';
-import { esc, mkAvatar } from './helpers.js';
+import { esc, mkAvatar, formatSets as _fmtSets, relativeTime as _relTime } from './helpers.js';
 import { state, loadPlayers, loadMatches, getPlayerById, loadLocations, addPlayer, deletePlayer, addMatch, updateMatch, getComments, addComment, deleteComment, getEloHistory, apiFetch } from './state.js';
 import { countSetWins, computeStats, getLeaderboard, computeH2H, filterMatchesByDateRange, computeAchievements } from './stats.js';
 import { showModal, hideModal, showConfirmModal, showToast, createMatchCard, populateFilter, navigateTo } from './ui.js';
@@ -1054,12 +1054,8 @@ function renderComparison(container, p1Id, p2Id) {
   `;
 }
 
-// Cache for helper functions needed in detail modal
-const _helperCache = {};
-import('./helpers.js').then(m => {
-  _helperCache.formatSets = m.formatSets;
-  _helperCache.relativeTime = m.relativeTime;
-});
+// Helper functions cache for detail modal (statically imported above)
+const _helperCache = { formatSets: _fmtSets, relativeTime: _relTime };
 
 export {
   setRenderFns,

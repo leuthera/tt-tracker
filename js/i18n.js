@@ -73,6 +73,7 @@ const translations = {
     'stats.wins': 'Wins', 'stats.totalMatches': 'Matches',
     // Confirm
     'confirm.title': 'Confirm', 'confirm.delete': 'Delete', 'confirm.cancel': 'Cancel',
+    'confirm.deleteMatch': 'Delete this match? This cannot be undone.',
     // Toast
     'toast.dataError': 'Could not load data', 'toast.matchDeleted': 'Match deleted',
     'toast.matchDeleteError': 'Could not delete match',
@@ -141,6 +142,8 @@ const translations = {
     'toast.locationUpdated': 'Location updated',
     'toast.imageUploaded': 'Photo uploaded',
     'toast.imageRemoved': 'Photo removed',
+    'toast.imageUploadFailed': 'Image upload failed',
+    'toast.uploadFailed': 'Upload failed',
     'confirm.deleteLocation': 'Delete "{name}"?',
     'confirm.deleteLocationWithMatches': '"{name}" is used in matches. Delete and remove from all matches?',
     // Edit match
@@ -260,6 +263,7 @@ const translations = {
     'stats.compareTwoPlayers': 'W\u00E4hle zwei Spieler zum Vergleichen',
     'stats.wins': 'Siege', 'stats.totalMatches': 'Spiele',
     'confirm.title': 'Best\u00E4tigen', 'confirm.delete': 'L\u00F6schen', 'confirm.cancel': 'Abbrechen',
+    'confirm.deleteMatch': 'Dieses Spiel l\u00F6schen? Dies kann nicht r\u00FCckg\u00E4ngig gemacht werden.',
     'toast.dataError': 'Daten konnten nicht geladen werden', 'toast.matchDeleted': 'Spiel gel\u00F6scht',
     'toast.matchDeleteError': 'Spiel konnte nicht gel\u00F6scht werden',
     'export.title': 'Daten exportieren', 'export.description': 'Lade deine Daten als CSV- oder JSON-Dateien herunter.',
@@ -321,6 +325,8 @@ const translations = {
     'toast.locationUpdated': 'Ort aktualisiert',
     'toast.imageUploaded': 'Foto hochgeladen',
     'toast.imageRemoved': 'Foto entfernt',
+    'toast.imageUploadFailed': 'Bild-Upload fehlgeschlagen',
+    'toast.uploadFailed': 'Upload fehlgeschlagen',
     'confirm.deleteLocation': '"{name}" l\u00F6schen?',
     'confirm.deleteLocationWithMatches': '"{name}" wird in Spielen verwendet. L\u00F6schen und aus allen Spielen entfernen?',
     'match.edit': 'Spiel bearbeiten',

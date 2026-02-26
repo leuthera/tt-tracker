@@ -113,10 +113,15 @@ function attachListeners() {
     btn.addEventListener('click', () => navigateTo(btn.dataset.tab, renderFns));
   });
 
-  // Modal: close button + backdrop
+  // Modal: close button + backdrop + Escape key
   document.getElementById('modal-close-btn').addEventListener('click', hideModal);
   document.getElementById('modal-overlay').addEventListener('click', e => {
     if (e.target === document.getElementById('modal-overlay')) hideModal();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && document.getElementById('modal-overlay').classList.contains('active')) {
+      hideModal();
+    }
   });
 
   // Add player
@@ -153,6 +158,7 @@ function attachListeners() {
         btn.disabled = false;
       },
       () => {
+        showToast(t('addLocation.gpsError'), 'error');
         btn.disabled = false;
       },
       { enableHighAccuracy: true, timeout: 10000 }
@@ -322,7 +328,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('message', (event) => {
       const { data } = event;
-      if (data.type === 'QUEUED_OFFLINE') {
+      if (data.type === 'QUEUE_COUNT') {
+        state.pendingSync = data.count;
+        updateSyncBadge();
+      } else if (data.type === 'QUEUED_OFFLINE') {
         state.pendingSync++;
         updateSyncBadge();
         showToast(t('offline.queued'), 'info');
@@ -376,5 +385,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   updateStaticLabels();
   hideLoading();
 
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js');
+    navigator.serviceWorker.ready.then(reg => {
+      if (reg.active) reg.active.postMessage({ type: 'GET_QUEUE_COUNT' });
+    });
+  }
 });

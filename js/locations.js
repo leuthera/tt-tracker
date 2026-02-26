@@ -127,6 +127,7 @@ function showAddLocationModal() {
   setTimeout(() => nameInput.focus(), 50);
 
   let selectedFile = null;
+  let previewUrl = null;
 
   document.getElementById('loc-gps-btn').addEventListener('click', () => {
     const btn = document.getElementById('loc-gps-btn');
@@ -151,9 +152,10 @@ function showAddLocationModal() {
   document.getElementById('loc-image-input').addEventListener('change', e => {
     selectedFile = e.target.files[0] || null;
     const preview = document.getElementById('loc-image-preview');
+    if (previewUrl) { URL.revokeObjectURL(previewUrl); previewUrl = null; }
     if (selectedFile) {
-      const url = URL.createObjectURL(selectedFile);
-      preview.innerHTML = `<img src="${url}" alt="Preview">`;
+      previewUrl = URL.createObjectURL(selectedFile);
+      preview.innerHTML = `<img src="${previewUrl}" alt="Preview">`;
     } else {
       preview.innerHTML = '';
     }
@@ -176,7 +178,7 @@ function showAddLocationModal() {
         const base64 = await resizeImage(selectedFile, 800, 0.7);
         await uploadLocationImage(res.location.id, base64);
       } catch (e) {
-        showToast('Image upload failed', 'error');
+        showToast(t('toast.imageUploadFailed'), 'error');
       }
     }
 
@@ -263,7 +265,7 @@ function showLocationDetailModal(locationId) {
       hideModal();
       renderLocations();
     } catch (err) {
-      showToast(err.message || 'Upload failed', 'error');
+      showToast(err.message || t('toast.uploadFailed'), 'error');
     }
   });
 }

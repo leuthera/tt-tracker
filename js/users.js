@@ -18,13 +18,22 @@ async function showUsersModal() {
           <div style="font-size:12px;color:var(--text-muted)">${esc(u.role)}${isSelf ? ' ' + esc(t('users.you')) : ''}</div>
         </div>
         <div style="display:flex;gap:6px">
-          <button class="btn btn--secondary" style="padding:6px 10px;font-size:12px;width:auto" onclick="window._resetUserPw('${esc(u.id)}','${esc(u.username)}')">${esc(t('users.resetPw'))}</button>
-          ${isSelf ? '' : `<button class="btn btn--danger" style="padding:6px 10px;font-size:12px;width:auto" onclick="window._deleteUser('${esc(u.id)}','${esc(u.username)}')">${esc(t('users.deleteBtn'))}</button>`}
+          <button class="btn btn--secondary" style="padding:6px 10px;font-size:12px;width:auto" data-action="reset-pw" data-user-id="${esc(u.id)}" data-username="${esc(u.username)}">${esc(t('users.resetPw'))}</button>
+          ${isSelf ? '' : `<button class="btn btn--danger" style="padding:6px 10px;font-size:12px;width:auto" data-action="delete-user" data-user-id="${esc(u.id)}" data-username="${esc(u.username)}">${esc(t('users.deleteBtn'))}</button>`}
         </div>
       </div>`;
     }
     html += '</div>';
     document.getElementById('modal-body').innerHTML = html;
+    // Event delegation for user actions
+    document.getElementById('modal-body').addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-action]');
+      if (!btn) return;
+      const userId = btn.dataset.userId;
+      const username = btn.dataset.username;
+      if (btn.dataset.action === 'reset-pw') _resetUserPw(userId, username);
+      else if (btn.dataset.action === 'delete-user') _deleteUser(userId, username);
+    });
     const footer = document.getElementById('modal-footer');
     footer.innerHTML = `<button class="btn btn--primary" id="add-user-btn">${esc(t('users.addUser'))}</button>`;
     footer.style.display = '';
@@ -78,7 +87,7 @@ function showAddUserModal() {
   document.getElementById('back-to-users-btn').addEventListener('click', showUsersModal);
 }
 
-window._resetUserPw = function(userId, username) {
+function _resetUserPw(userId, username) {
   showModal({
     title: t('resetPw.title'),
     bodyHTML: `
@@ -102,9 +111,9 @@ window._resetUserPw = function(userId, username) {
     }
   });
   document.getElementById('back-to-users-btn2').addEventListener('click', showUsersModal);
-};
+}
 
-window._deleteUser = function(userId, username) {
+function _deleteUser(userId, username) {
   showConfirmModal(t('users.deleteConfirm', { name: username }), async () => {
     try {
       await apiFetch(`/api/users/${userId}`, { method: 'DELETE' });
@@ -114,7 +123,7 @@ window._deleteUser = function(userId, username) {
       showToast(e.message, 'error');
     }
   });
-};
+}
 
 function showChangePasswordModal() {
   showModal({

@@ -118,7 +118,7 @@ function createMatchCard(match, { onDeleteDone, onEdit, onDetail } = {}) {
 
   if (isAdmin) {
     const onConfirmDelete = () => {
-      showConfirmModal(t('confirm.title'), async () => {
+      showConfirmModal(t('confirm.deleteMatch'), async () => {
         try {
           await deleteMatch(match.id);
           showToast(t('toast.matchDeleted'), 'success');
@@ -186,12 +186,18 @@ async function navigateTo(tabId, renderFns) {
   const navId = ++_navCounter;
 
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.bottom-nav__item').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.bottom-nav__item').forEach(b => {
+    b.classList.remove('active');
+    b.setAttribute('aria-selected', 'false');
+  });
 
   const panel = document.getElementById('tab-' + tabId);
   if (panel) panel.classList.add('active');
   const btn = document.querySelector(`[data-tab="${tabId}"]`);
-  if (btn) btn.classList.add('active');
+  if (btn) {
+    btn.classList.add('active');
+    btn.setAttribute('aria-selected', 'true');
+  }
 
   state.currentTab = tabId;
   document.querySelector('.tab-content').scrollTop = 0;

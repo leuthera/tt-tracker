@@ -64,7 +64,14 @@ const dbHeaders = DB_TOKEN ? { 'Authorization': `Bearer ${DB_TOKEN}` } : {};
 async function dbFetch(path, options) {
   const opts = { ...options, headers: { ...dbHeaders, ...options?.headers } };
   const res = await fetch(`${DB_URL}${path}`, opts);
-  const body = await res.json();
+  let body;
+  try {
+    body = await res.json();
+  } catch {
+    const err = new Error(`DB service error ${res.status}: non-JSON response`);
+    err.status = res.status || 500;
+    throw err;
+  }
   if (!res.ok) {
     const err = new Error(body.error || `DB service error ${res.status}`);
     err.status = res.status;
@@ -154,7 +161,7 @@ const loginHTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#2d7a2d">
   <title>TT Tracker — Login</title>
   <style>
@@ -652,6 +659,8 @@ app.put('/api/locations/:id', requireAuth, async (req, res) => {
 
   const lat = req.body.lat !== undefined ? (req.body.lat != null ? Number(req.body.lat) : null) : undefined;
   const lng = req.body.lng !== undefined ? (req.body.lng != null ? Number(req.body.lng) : null) : undefined;
+  if (lat != null && (!Number.isFinite(lat) || lat < -90 || lat > 90)) return res.status(400).json({ error: 'Invalid latitude' });
+  if (lng != null && (!Number.isFinite(lng) || lng < -180 || lng > 180)) return res.status(400).json({ error: 'Invalid longitude' });
 
   try {
     const loc = await dbFetch(`/locations/${req.params.id}`, {

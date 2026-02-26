@@ -15,6 +15,7 @@ if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
 // ─── DATABASE ─────────────────────────────────────────────────────────────────
 const db = new Database(DB_PATH);
+db.pragma('foreign_keys = ON');
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS players (
@@ -95,6 +96,14 @@ db.exec(`
     rating_after INTEGER NOT NULL,
     created_at TEXT NOT NULL
   );
+
+  CREATE INDEX IF NOT EXISTS idx_matches_player1 ON matches(player1_id);
+  CREATE INDEX IF NOT EXISTS idx_matches_player2 ON matches(player2_id);
+  CREATE INDEX IF NOT EXISTS idx_matches_date ON matches(date);
+  CREATE INDEX IF NOT EXISTS idx_matches_location ON matches(location_id);
+  CREATE INDEX IF NOT EXISTS idx_comments_match ON comments(match_id);
+  CREATE INDEX IF NOT EXISTS idx_elo_history_player ON elo_history(player_id);
+  CREATE INDEX IF NOT EXISTS idx_elo_history_match ON elo_history(match_id);
 `);
 
 const stmts = {
@@ -139,10 +148,19 @@ const stmts = {
   deleteAllEloHistory: db.prepare('DELETE FROM elo_history'),
   getEloHistoryByPlayer: db.prepare('SELECT * FROM elo_history WHERE player_id = ? ORDER BY created_at ASC'),
   getAllMatchesByDate: db.prepare('SELECT * FROM matches ORDER BY date ASC'),
+  // Ad-hoc queries moved here for reuse
+  getMatchIdsByPlayer: db.prepare('SELECT id FROM matches WHERE player1_id = ? OR player2_id = ? OR player3_id = ? OR player4_id = ?'),
+  deleteEloHistoryByMatch: db.prepare('DELETE FROM elo_history WHERE match_id = ?'),
+  deleteEloHistoryByPlayer: db.prepare('DELETE FROM elo_history WHERE player_id = ?'),
+  updateLocationImage: db.prepare('UPDATE locations SET image = ? WHERE id = ?'),
 };
 
 function generateId(prefix) {
-  return prefix + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+  return prefix + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
+}
+
+function isValidId(id) {
+  return /^[a-z]+_\d+_[a-z0-9]+$/.test(id);
 }
 
 // ─── EXPRESS APP ──────────────────────────────────────────────────────────────
@@ -194,13 +212,13 @@ app.delete('/players/:id', (req, res) => {
   if (stmts.playerHasMatch.get(id, id, id, id)) {
     if (!force) return res.status(409).json({ error: 'Player has matches' });
     // Clean up elo_history and comments for affected matches before deleting them
-    const matches = db.prepare('SELECT id FROM matches WHERE player1_id = ? OR player2_id = ? OR player3_id = ? OR player4_id = ?').all(id, id, id, id);
+    const matches = stmts.getMatchIdsByPlayer.all(id, id, id, id);
     for (const m of matches) {
       stmts.deleteCommentsByMatch.run(m.id);
-      db.prepare('DELETE FROM elo_history WHERE match_id = ?').run(m.id);
+      stmts.deleteEloHistoryByMatch.run(m.id);
     }
     // Also clean up elo_history for this player (from other matches)
-    db.prepare('DELETE FROM elo_history WHERE player_id = ?').run(id);
+    stmts.deleteEloHistoryByPlayer.run(id);
     stmts.deletePlayerMatches.run(id, id, id, id);
   }
   stmts.deletePlayer.run(id);
@@ -259,7 +277,7 @@ app.put('/matches/:id', (req, res) => {
 
 app.delete('/matches/:id', (req, res) => {
   stmts.deleteCommentsByMatch.run(req.params.id);
-  db.prepare('DELETE FROM elo_history WHERE match_id = ?').run(req.params.id);
+  stmts.deleteEloHistoryByMatch.run(req.params.id);
   stmts.deleteMatch.run(req.params.id);
   res.json({ ok: true });
 });
@@ -320,7 +338,12 @@ app.put('/locations/:id', (req, res) => {
   if (!row) return res.status(404).json({ error: 'Location not found' });
   const { name, lat, lng } = req.body;
   try {
-    stmts.updateLocation.run(name ?? row.name, lat ?? row.lat, lng ?? row.lng, id);
+    stmts.updateLocation.run(
+      name !== undefined ? name : row.name,
+      lat !== undefined ? lat : row.lat,
+      lng !== undefined ? lng : row.lng,
+      id
+    );
     res.json(stmts.getLocation.get(id));
   } catch (e) {
     if (e.message.includes('UNIQUE')) return res.status(409).json({ error: 'UNIQUE constraint' });
@@ -341,6 +364,7 @@ app.delete('/locations/:id', (req, res) => {
 });
 
 app.post('/locations/:id/image', (req, res) => {
+  if (!isValidId(req.params.id)) return res.status(400).json({ error: 'Invalid id' });
   const row = stmts.getLocation.get(req.params.id);
   if (!row) return res.status(404).json({ error: 'Location not found' });
   const { data } = req.body;
@@ -349,7 +373,7 @@ app.post('/locations/:id/image', (req, res) => {
     const buf = Buffer.from(data, 'base64');
     const filePath = path.join(uploadsDir, `${req.params.id}.jpg`);
     fs.writeFileSync(filePath, buf);
-    db.prepare('UPDATE locations SET image = ? WHERE id = ?').run('uploaded', req.params.id);
+    stmts.updateLocationImage.run('uploaded', req.params.id);
     res.json({ ok: true });
   } catch (e) {
     console.error('Image upload error:', e.message);
@@ -358,15 +382,17 @@ app.post('/locations/:id/image', (req, res) => {
 });
 
 app.get('/locations/:id/image', (req, res) => {
+  if (!isValidId(req.params.id)) return res.status(400).json({ error: 'Invalid id' });
   const filePath = path.join(uploadsDir, `${req.params.id}.jpg`);
   if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Image not found' });
   res.type('image/jpeg').sendFile(filePath);
 });
 
 app.delete('/locations/:id/image', (req, res) => {
+  if (!isValidId(req.params.id)) return res.status(400).json({ error: 'Invalid id' });
   const filePath = path.join(uploadsDir, `${req.params.id}.jpg`);
   if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-  db.prepare('UPDATE locations SET image = ? WHERE id = ?').run('', req.params.id);
+  stmts.updateLocationImage.run('', req.params.id);
   res.json({ ok: true });
 });
 
@@ -377,43 +403,46 @@ app.get('/elo/history/:playerId', (req, res) => {
   res.json(stmts.getEloHistoryByPlayer.all(req.params.playerId));
 });
 
+const recalculateEloTransaction = db.transaction(() => {
+  // Reset all ELO to 1200
+  stmts.resetAllElo.run();
+  stmts.deleteAllEloHistory.run();
+
+  // Fetch all matches ordered by date ASC
+  const matches = stmts.getAllMatchesByDate.all();
+
+  // Build a ratings map from all players
+  const players = stmts.getPlayers.all();
+  const ratings = {};
+  for (const p of players) ratings[p.id] = 1200;
+
+  // Process each match
+  for (const match of matches) {
+    if (!match.winner_id) continue; // skip draws — no ELO change
+
+    const entries = calculateMatchElo(match, ratings);
+    for (const entry of entries) {
+      ratings[entry.playerId] = entry.ratingAfter;
+      stmts.insertEloHistory.run(
+        generateId('elo'),
+        entry.playerId,
+        match.id,
+        entry.ratingBefore,
+        entry.ratingAfter,
+        match.date.toString()
+      );
+    }
+  }
+
+  // Update player ratings
+  for (const [playerId, rating] of Object.entries(ratings)) {
+    stmts.updatePlayerElo.run(rating, playerId);
+  }
+});
+
 app.post('/elo/recalculate', (req, res) => {
   try {
-    // Reset all ELO to 1200
-    stmts.resetAllElo.run();
-    stmts.deleteAllEloHistory.run();
-
-    // Fetch all matches ordered by date ASC
-    const matches = stmts.getAllMatchesByDate.all();
-
-    // Build a ratings map from all players
-    const players = stmts.getPlayers.all();
-    const ratings = {};
-    for (const p of players) ratings[p.id] = 1200;
-
-    // Process each match
-    for (const match of matches) {
-      if (!match.winner_id) continue; // skip draws — no ELO change
-
-      const entries = calculateMatchElo(match, ratings);
-      for (const entry of entries) {
-        ratings[entry.playerId] = entry.ratingAfter;
-        stmts.insertEloHistory.run(
-          generateId('elo'),
-          entry.playerId,
-          match.id,
-          entry.ratingBefore,
-          entry.ratingAfter,
-          match.date.toString()
-        );
-      }
-    }
-
-    // Update player ratings
-    for (const [playerId, rating] of Object.entries(ratings)) {
-      stmts.updatePlayerElo.run(rating, playerId);
-    }
-
+    recalculateEloTransaction();
     res.json({ ok: true });
   } catch (e) {
     console.error('ELO recalculate error:', e.message);
