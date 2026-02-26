@@ -10,6 +10,7 @@ import {
 } from './render.js';
 import { showUsersModal, showChangePasswordModal } from './users.js';
 import { showExportModal } from './export.js';
+import { renderLocations, showAddLocationModal } from './locations.js';
 
 // ─── Global Error Reporting ─────────────────────────────────────────────────
 
@@ -46,7 +47,8 @@ const renderFns = {
   'new-match': renderNewMatchTab,
   'players':   renderPlayers,
   'history':   renderHistory,
-  'stats':     renderStats
+  'stats':     renderStats,
+  'locations': renderLocations
 };
 
 setRenderFns(renderFns);
@@ -74,7 +76,7 @@ function applyTheme(theme) {
 // ─── STATIC LABEL UPDATE (for language toggle) ─────────────────────────────
 
 function updateStaticLabels() {
-  const navKeys = ['nav.home', 'nav.new', 'nav.players', 'nav.history', 'nav.stats'];
+  const navKeys = ['nav.home', 'nav.new', 'nav.players', 'nav.history', 'nav.stats', 'nav.locations'];
   document.querySelectorAll('.bottom-nav__item').forEach((btn, i) => {
     const label = btn.querySelector('.bottom-nav__label');
     if (label && navKeys[i]) label.textContent = t(navKeys[i]);
@@ -97,6 +99,8 @@ function updateStaticLabels() {
   if (saveMatchBtn && !saveMatchBtn.disabled) saveMatchBtn.textContent = t('match.save');
   const addPlayerBtn = document.getElementById('add-player-btn');
   if (addPlayerBtn) addPlayerBtn.textContent = t('players.addPlayer');
+  const addLocBtn = document.getElementById('add-location-btn');
+  if (addLocBtn) addLocBtn.textContent = t('locations.addLocation');
   const langBtn = document.getElementById('lang-toggle-btn');
   if (langBtn) langBtn.textContent = getLang().toUpperCase();
 }
@@ -117,6 +121,43 @@ function attachListeners() {
 
   // Add player
   document.getElementById('add-player-btn').addEventListener('click', showAddPlayerModal);
+
+  // Add location
+  document.getElementById('add-location-btn').addEventListener('click', showAddLocationModal);
+
+  // Location select
+  document.getElementById('location-select').addEventListener('change', e => {
+    state.newMatch.locationId = e.target.value;
+  });
+
+  // Detect location via GPS
+  document.getElementById('detect-location-btn').addEventListener('click', () => {
+    const btn = document.getElementById('detect-location-btn');
+    btn.disabled = true;
+    navigator.geolocation.getCurrentPosition(
+      async pos => {
+        const { haversineDistance } = await import('./helpers.js');
+        const { loadLocations } = await import('./state.js');
+        const locations = loadLocations().filter(l => l.lat != null && l.lng != null);
+        if (locations.length === 0) { btn.disabled = false; return; }
+        let nearest = locations[0], minDist = Infinity;
+        for (const l of locations) {
+          const d = haversineDistance(pos.coords.latitude, pos.coords.longitude, l.lat, l.lng);
+          if (d < minDist) { minDist = d; nearest = l; }
+        }
+        state.newMatch.locationId = nearest.id;
+        const sel = document.getElementById('location-select');
+        sel.value = nearest.id;
+        const { showToast: toast } = await import('./ui.js');
+        toast(t('match.locationDetected', { name: nearest.name }), 'success');
+        btn.disabled = false;
+      },
+      () => {
+        btn.disabled = false;
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  });
 
   // Add set
   document.getElementById('add-set-btn').addEventListener('click', () => {

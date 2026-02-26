@@ -17,7 +17,7 @@
 
 ```bash
 nvm use 22                   # MUST run before tests
-npm test                     # All tests (~141 tests, node:test)
+npm test                     # All tests (~158 tests, node:test)
 npm run test:unit            # Unit tests only (fast)
 npm run test:integration     # Integration tests only (spawns real processes)
 npm run lint                 # ESLint — no-undef + no-unused-vars only
@@ -27,16 +27,17 @@ npm run lint                 # ESLint — no-undef + no-unused-vars only
 
 - **server.js** — Express app (port 8000): auth, sessions, API proxy to db-service, serves static files + `js/`
 - **db-service.js** — SQLite REST microservice (port 3000, internal only): CRUD via better-sqlite3
-- **index.html** — Frontend shell (~1240 lines: HTML + inline CSS, no JS). JS is in `js/` modules.
+- **index.html** — Frontend HTML shell (~190 lines). CSS in `css/styles.css`, JS in `js/` modules.
 - **js/** — Frontend ES modules (browser-native, no build step):
   - `i18n.js` — translations (EN/DE), language helpers
-  - `state.js` — app state, API fetch, CRUD operations
-  - `helpers.js` — esc, avatar, relativeTime, dateGroup, formatSets
+  - `state.js` — app state, API fetch, CRUD operations (players, matches, locations)
+  - `helpers.js` — esc, avatar, relativeTime, dateGroup, formatSets, haversineDistance
   - `stats.js` — pure stats functions (computeStats, getLeaderboard, computeH2H)
   - `ui.js` — modal, toast, loading, match card, swipe-to-delete, navigation
   - `export.js` — CSV/JSON export
   - `render.js` — all render* functions for each tab
   - `users.js` — user management modals (admin)
+  - `locations.js` — locations tab rendering, add/edit/detail modals, image upload
   - `app.js` — entry point: event listeners, theme, offline/sync, init
 - **sw.js** — Service worker: caching, offline queue (IndexedDB), background sync
 - **lib/helpers.js** — Shared server utilities (password hashing, DB row transformers, match logic, CSV escaping)

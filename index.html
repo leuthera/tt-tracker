@@ -81,6 +81,13 @@
           <label class="form-label" for="match-note">Note (optional)</label>
           <input type="text" class="form-input" id="match-note" placeholder="e.g. Friendly game, tournament...">
         </div>
+        <div class="form-group">
+          <label class="form-label">Location (optional)</label>
+          <div class="location-select-row">
+            <select class="form-select" id="location-select" aria-label="Location"></select>
+            <button type="button" class="btn btn--secondary btn--icon" id="detect-location-btn" title="Detect location">&#x1F4CD;</button>
+          </div>
+        </div>
         <button class="btn btn--primary" id="save-match-btn">Save Match</button>
       </div>
     </section>
@@ -108,6 +115,14 @@
       </div>
       <div id="leaderboard-container"></div>
       <div id="player-stats-container"></div>
+    </section>
+
+    <!-- TAB: Locations -->
+    <section class="tab-panel" id="tab-locations">
+      <div class="section">
+        <button class="btn btn--primary" id="add-location-btn">+ Add Location</button>
+      </div>
+      <div id="locations-list"></div>
     </section>
 
   </main>
@@ -143,6 +158,12 @@
         <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
       </span>
       <span class="bottom-nav__label">Stats</span>
+    </button>
+    <button class="bottom-nav__item" data-tab="locations">
+      <span class="bottom-nav__icon">
+        <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+      </span>
+      <span class="bottom-nav__label">Places</span>
     </button>
   </nav>
 

@@ -2,7 +2,7 @@
 
 import { t } from './i18n.js';
 import { esc, mkAvatar } from './helpers.js';
-import { state, loadPlayers, loadMatches, getPlayerById, addPlayer, deletePlayer, addMatch, apiFetch } from './state.js';
+import { state, loadPlayers, loadMatches, getPlayerById, loadLocations, addPlayer, deletePlayer, addMatch, apiFetch } from './state.js';
 import { countSetWins, computeStats, getLeaderboard, computeH2H } from './stats.js';
 import { showModal, hideModal, showConfirmModal, showToast, createMatchCard, populateFilter, navigateTo } from './ui.js';
 
@@ -126,12 +126,23 @@ function renderTopPlayers() {
 
 function renderNewMatchTab() {
   populatePlayerSelects();
+  populateLocationSelect();
   renderSetRows();
   updateResultPreview();
   document.getElementById('match-note').value = state.newMatch.note;
   const saveBtn = document.getElementById('save-match-btn');
   saveBtn.disabled = false;
   saveBtn.textContent = t('match.save');
+}
+
+function populateLocationSelect() {
+  const locations = loadLocations();
+  const sel = document.getElementById('location-select');
+  if (!sel) return;
+  const placeholder = `<option value="">${esc(t('match.noLocation'))}</option>`;
+  const opts = locations.map(l => `<option value="${esc(l.id)}">${esc(l.name)}</option>`).join('');
+  sel.innerHTML = placeholder + opts;
+  sel.value = state.newMatch.locationId || '';
 }
 
 function populatePlayerSelects() {
@@ -235,9 +246,10 @@ async function submitMatch() {
       player1Id: document.getElementById('player1-select').value,
       player2Id: document.getElementById('player2-select').value,
       sets: [...state.newMatch.sets],
-      note: document.getElementById('match-note').value
+      note: document.getElementById('match-note').value,
+      locationId: state.newMatch.locationId || undefined
     });
-    state.newMatch = { player1Id: '', player2Id: '', sets: [{p1: 11, p2: 0}], note: '' };
+    state.newMatch = { player1Id: '', player2Id: '', sets: [{p1: 11, p2: 0}], note: '', locationId: '' };
     showToast(t('match.saved'), 'success');
     await navigateTo('home', _renderFns);
   } catch(e) {

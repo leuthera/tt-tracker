@@ -4,7 +4,8 @@ const state = {
   currentTab: 'home',
   players: [],
   matches: [],
-  newMatch: { player1Id: '', player2Id: '', sets: [{p1: 11, p2: 0}], note: '' },
+  locations: [],
+  newMatch: { player1Id: '', player2Id: '', sets: [{p1: 11, p2: 0}], note: '', locationId: '' },
   historyFilter: '',
   statsFilter: '',
   me: { role: 'user', username: '' },
@@ -40,9 +41,10 @@ function loadMatches() { return state.matches; }
 function getPlayerById(id) { return state.players.find(p => p.id === id) || null; }
 
 async function refreshAll() {
-  [state.players, state.matches] = await Promise.all([
+  [state.players, state.matches, state.locations] = await Promise.all([
     apiFetch('/api/players'),
-    apiFetch('/api/matches')
+    apiFetch('/api/matches'),
+    apiFetch('/api/locations')
   ]);
 }
 
@@ -97,6 +99,65 @@ async function deleteMatch(id) {
   await refreshMatches();
 }
 
+// ─── LOCATION CRUD ─────────────────────────────────────────────────────────
+
+function loadLocations() { return state.locations; }
+function getLocationById(id) { return state.locations.find(l => l.id === id) || null; }
+
+async function refreshLocations() {
+  state.locations = await apiFetch('/api/locations');
+}
+
+async function addLocation({ name, lat, lng }) {
+  try {
+    const loc = await apiFetch('/api/locations', {
+      method: 'POST',
+      body: JSON.stringify({ name, lat, lng })
+    });
+    await refreshLocations();
+    return { ok: true, location: loc };
+  } catch(e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+async function updateLocation(id, { name, lat, lng }) {
+  try {
+    const loc = await apiFetch(`/api/locations/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ name, lat, lng })
+    });
+    await refreshLocations();
+    return { ok: true, location: loc };
+  } catch(e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+async function deleteLocation(id, force) {
+  try {
+    const qs = force ? '?force=true' : '';
+    await apiFetch(`/api/locations/${id}${qs}`, { method: 'DELETE' });
+    await refreshLocations();
+    return { ok: true };
+  } catch(e) {
+    return { ok: false, error: e.message, status: e.status };
+  }
+}
+
+async function uploadLocationImage(id, base64) {
+  await apiFetch(`/api/locations/${id}/image`, {
+    method: 'POST',
+    body: JSON.stringify({ data: base64 })
+  });
+  await refreshLocations();
+}
+
+async function deleteLocationImage(id) {
+  await apiFetch(`/api/locations/${id}/image`, { method: 'DELETE' });
+  await refreshLocations();
+}
+
 // ─── CLIENT ERROR REPORTING ─────────────────────────────────────────────────
 
 function logClientError({ message, stack, url, line, col }) {
@@ -110,8 +171,11 @@ function logClientError({ message, stack, url, line, col }) {
 export {
   state, apiFetch,
   loadPlayers, loadMatches, getPlayerById,
-  refreshAll, refreshPlayers, refreshMatches,
+  loadLocations, getLocationById,
+  refreshAll, refreshPlayers, refreshMatches, refreshLocations,
   addPlayer, deletePlayer,
   addMatch, deleteMatch,
+  addLocation, updateLocation, deleteLocation,
+  uploadLocationImage, deleteLocationImage,
   logClientError
 };

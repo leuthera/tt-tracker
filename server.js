@@ -45,7 +45,7 @@ const net = require('net');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
-const { hashPassword, verifyPassword, dbToPlayer, dbToMatch, dbToUser, determineWinner } = require('./lib/helpers');
+const { hashPassword, verifyPassword, dbToPlayer, dbToMatch, dbToLocation, dbToUser, determineWinner } = require('./lib/helpers');
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const ADMIN_USER = process.env.ADMIN_USER || 'admin';
@@ -76,8 +76,8 @@ async function dbFetch(path, options) {
 // ─── EXPRESS APP ──────────────────────────────────────────────────────────────
 const app = express();
 
-app.use(express.json({ limit: '100kb' }));
-app.use(express.urlencoded({ extended: false, limit: '100kb' }));
+app.use(express.json({ limit: '500kb' }));
+app.use(express.urlencoded({ extended: false, limit: '500kb' }));
 
 // ─── SECURITY HEADERS ────────────────────────────────────────────────────────
 app.use((req, res, next) => {
@@ -402,7 +402,7 @@ app.get('/api/matches', requireAuth, async (req, res) => {
 });
 
 app.post('/api/matches', requireAuth, async (req, res) => {
-  const { player1Id, player2Id, sets, note } = req.body;
+  const { player1Id, player2Id, sets, note, locationId } = req.body;
   if (!player1Id || !player2Id) return res.status(400).json({ error: 'Both players required' });
   if (player1Id === player2Id) return res.status(400).json({ error: 'Players must be different' });
 
@@ -446,6 +446,7 @@ app.post('/api/matches', requireAuth, async (req, res) => {
         sets: JSON.stringify(sets),
         winner_id: winnerId,
         note: trimmedNote,
+        location_id: locationId || null,
       }),
     });
     res.json(dbToMatch(match));
@@ -460,6 +461,112 @@ app.delete('/api/matches/:id', requireAuth, requireAdmin, async (req, res) => {
     res.json(result);
   } catch (e) {
     res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ─── API: LOCATIONS ──────────────────────────────────────────────────────────
+app.get('/api/locations', requireAuth, async (req, res) => {
+  try {
+    const rows = await dbFetch('/locations');
+    res.json(rows.map(dbToLocation));
+  } catch (e) {
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+app.post('/api/locations', requireAuth, async (req, res) => {
+  const name = (req.body.name || '').trim();
+  if (!name) return res.status(400).json({ error: 'Name cannot be empty' });
+  if (name.length > 60) return res.status(400).json({ error: 'Name too long (max 60 chars)' });
+
+  const lat = req.body.lat != null ? Number(req.body.lat) : null;
+  const lng = req.body.lng != null ? Number(req.body.lng) : null;
+  if (lat != null && (!Number.isFinite(lat) || lat < -90 || lat > 90)) return res.status(400).json({ error: 'Invalid latitude' });
+  if (lng != null && (!Number.isFinite(lng) || lng < -180 || lng > 180)) return res.status(400).json({ error: 'Invalid longitude' });
+
+  try {
+    const loc = await dbFetch('/locations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, lat, lng }),
+    });
+    res.json(dbToLocation(loc));
+  } catch (e) {
+    if (e.status === 409) return res.status(400).json({ error: 'A location with this name already exists' });
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+app.put('/api/locations/:id', requireAuth, async (req, res) => {
+  const name = req.body.name != null ? (req.body.name || '').trim() : undefined;
+  if (name !== undefined && !name) return res.status(400).json({ error: 'Name cannot be empty' });
+  if (name && name.length > 60) return res.status(400).json({ error: 'Name too long (max 60 chars)' });
+
+  const lat = req.body.lat !== undefined ? (req.body.lat != null ? Number(req.body.lat) : null) : undefined;
+  const lng = req.body.lng !== undefined ? (req.body.lng != null ? Number(req.body.lng) : null) : undefined;
+
+  try {
+    const loc = await dbFetch(`/locations/${req.params.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, lat, lng }),
+    });
+    res.json(dbToLocation(loc));
+  } catch (e) {
+    if (e.status === 404) return res.status(404).json({ error: 'Location not found' });
+    if (e.status === 409) return res.status(400).json({ error: 'A location with this name already exists' });
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+app.delete('/api/locations/:id', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const force = req.query.force === 'true' ? '?force=true' : '';
+    const result = await dbFetch(`/locations/${req.params.id}${force}`, { method: 'DELETE' });
+    res.json(result);
+  } catch (e) {
+    if (e.status === 409) return res.status(409).json({ error: 'Location has matches' });
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+app.post('/api/locations/:id/image', requireAuth, async (req, res) => {
+  const { data } = req.body;
+  if (!data || typeof data !== 'string') return res.status(400).json({ error: 'Image data required' });
+  if (data.length > 700000) return res.status(400).json({ error: 'Image too large (max ~500KB)' });
+  try {
+    const result = await dbFetch(`/locations/${req.params.id}/image`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data }),
+    });
+    res.json(result);
+  } catch (e) {
+    if (e.status === 404) return res.status(404).json({ error: 'Location not found' });
+    res.status(500).json({ error: 'Image upload failed' });
+  }
+});
+
+app.get('/api/locations/:id/image', requireAuth, async (req, res) => {
+  try {
+    const response = await fetch(`${DB_URL}/locations/${req.params.id}/image`, {
+      headers: { ...dbHeaders },
+    });
+    if (!response.ok) return res.status(response.status).json({ error: 'Image not found' });
+    res.type('image/jpeg');
+    const buf = Buffer.from(await response.arrayBuffer());
+    res.send(buf);
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to load image' });
+  }
+});
+
+app.delete('/api/locations/:id/image', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const result = await dbFetch(`/locations/${req.params.id}/image`, { method: 'DELETE' });
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to delete image' });
   }
 });
 

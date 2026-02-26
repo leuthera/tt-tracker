@@ -2,7 +2,7 @@
 
 import { t } from './i18n.js';
 import { esc, relativeTime, formatSets } from './helpers.js';
-import { state, getPlayerById, deleteMatch, loadPlayers } from './state.js';
+import { state, getPlayerById, getLocationById, deleteMatch, loadPlayers } from './state.js';
 import { countSetWins } from './stats.js';
 
 // ─── MODAL SYSTEM ───────────────────────────────────────────────────────────
@@ -82,6 +82,7 @@ function createMatchCard(match, { onDeleteDone } = {}) {
     <div class="match-card__sets">${formatSets(match.sets)}</div>
     <div class="match-card__meta">
       <span class="match-card__time">${relativeTime(match.date)}</span>
+      ${match.locationId ? `<span class="match-card__location">&#x1F4CD; ${esc((getLocationById(match.locationId) || {}).name || '')}</span>` : ''}
       ${match.note ? `<span class="match-card__note">${esc(match.note)}</span>` : ''}
     </div>
   `;

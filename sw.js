@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'tt-tracker-v5';
+const CACHE_NAME = 'tt-tracker-v6';
 const APP_SHELL = [
   '/',
   '/manifest.json',
@@ -14,7 +14,8 @@ const APP_SHELL = [
   '/js/ui.js',
   '/js/export.js',
   '/js/render.js',
-  '/js/users.js'
+  '/js/users.js',
+  '/js/locations.js'
 ];
 
 // ─── IndexedDB Queue Helpers ────────────────────────────────────────────────

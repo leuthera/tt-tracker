@@ -29,6 +29,7 @@
 - [x] Validation: players must be different
 - [x] Automatic winner determination (most sets won)
 - [x] Optional match note field
+- [x] Optional location attachment with GPS auto-detect
 - [x] Delete match (with confirmation dialog)
 - [x] Swipe-to-delete gesture on match cards (mobile)
 - [x] Add/remove set rows dynamically
@@ -56,7 +57,8 @@
 - [x] Players tab — sortable player list, add player button
 - [x] History tab — full match timeline grouped by date, filterable by player
 - [x] Stats tab — leaderboard view with drill-down to individual player stats
-- [x] Bottom navigation bar with 5 tabs and active indicator
+- [x] Locations tab — venue list with name/coordinates/photo, add/edit/delete modals
+- [x] Bottom navigation bar with 6 tabs and active indicator
 - [x] Tab content re-fetches fresh data on each navigation
 
 ## UI Components
@@ -82,6 +84,13 @@
 - [x] `GET /api/matches` — list all matches (supports `?player=` filter)
 - [x] `POST /api/matches` — create match (with full validation)
 - [x] `DELETE /api/matches/:id` — delete match
+- [x] `GET /api/locations` — list all locations
+- [x] `POST /api/locations` — create location (name, optional lat/lng)
+- [x] `PUT /api/locations/:id` — update location name/coordinates
+- [x] `DELETE /api/locations/:id` — delete location (409 if matches; `?force=true` to nullify)
+- [x] `POST /api/locations/:id/image` — upload location photo (base64)
+- [x] `GET /api/locations/:id/image` — serve location photo
+- [x] `DELETE /api/locations/:id/image` — remove location photo
 - [x] `GET /login` — login page
 - [x] `POST /login` — authenticate
 - [x] `POST /logout` — sign out
@@ -92,6 +101,8 @@
 - [x] Players table with UNIQUE COLLATE NOCASE name
 - [x] Matches table with foreign keys to players
 - [x] Prepared statements for all queries
+- [x] Locations table with name, lat/lng, image flag
+- [x] Matches table `location_id` column (optional FK to locations)
 - [x] Sets stored as JSON string in matches table
 - [x] Configurable DB_PATH via environment variable
 
@@ -149,10 +160,10 @@
 
 ## Locations
 
-- [ ] Locations section to collect table tennis venues with name, coordinates, and images
-- [ ] Image upload for location photos
-- [ ] Optionally attach a location to a match
-- [ ] Auto-detect nearest location via GPS
+- [x] Locations section to collect table tennis venues with name, coordinates, and images
+- [x] Image upload for location photos
+- [x] Optionally attach a location to a match
+- [x] Auto-detect nearest location via GPS
 
 ## User Accounts
 
