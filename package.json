@@ -4,10 +4,10 @@
   "description": "Table tennis match tracker with player stats, head-to-head records, and leaderboards",
   "main": "server.js",
   "scripts": {
-    "test": "node --test test/**/*.test.js",
-    "test:unit": "node --test test/unit/**/*.test.js",
+    "test": "node --test test/**/*.test.js test/**/*.test.mjs",
+    "test:unit": "node --test test/unit/**/*.test.js test/unit/**/*.test.mjs",
     "test:integration": "node --test test/integration/**/*.test.js",
-    "lint": "eslint server.js db-service.js lib/ sw.js index.html test/"
+    "lint": "eslint server.js db-service.js lib/ sw.js js/ index.html test/"
   },
   "keywords": [],
   "author": "",

@@ -135,7 +135,11 @@
 
 ## Architecture
 
-- [ ] Refactor index.html — extract inline JS into separate modules with a modern, encapsulated, maintainable architecture
+- [x] Refactor index.html — extract inline JS into separate ES modules (`js/` directory)
+
+## Observability
+
+- [ ] Add JS error logging endpoint to the server to detect frontend errors
 
 ## Quality of Life
 

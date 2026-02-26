@@ -299,6 +299,7 @@ app.get('/sw.js', (req, res) => res.sendFile(path.join(__dirname, 'sw.js')));
 app.get('/', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
+app.use('/js', requireAuth, express.static(path.join(__dirname, 'js')));
 
 // ─── HELPERS (imported from lib/helpers.js) ──────────────────────────────────
 

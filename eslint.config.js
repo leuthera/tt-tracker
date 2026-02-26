@@ -18,12 +18,30 @@ module.exports = [
     },
     rules,
   },
-  // Tests
+  // Tests (CommonJS)
   {
     files: ['test/**/*.js'],
     languageOptions: {
       sourceType: 'commonjs',
       globals: globals.node,
+    },
+    rules,
+  },
+  // Tests (ESM)
+  {
+    files: ['test/**/*.mjs'],
+    languageOptions: {
+      sourceType: 'module',
+      globals: globals.node,
+    },
+    rules,
+  },
+  // Frontend ES modules (js/)
+  {
+    files: ['js/**/*.js'],
+    languageOptions: {
+      sourceType: 'module',
+      globals: globals.browser,
     },
     rules,
   },

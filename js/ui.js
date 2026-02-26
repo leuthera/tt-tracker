@@ -1,0 +1,190 @@
+// ─── UI Utilities ───────────────────────────────────────────────────────────
+
+import { t } from './i18n.js';
+import { esc, relativeTime, formatSets } from './helpers.js';
+import { state, getPlayerById, deleteMatch, loadPlayers } from './state.js';
+import { countSetWins } from './stats.js';
+
+// ─── MODAL SYSTEM ───────────────────────────────────────────────────────────
+
+function showModal({ title, bodyHTML, footerHTML }) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').innerHTML = bodyHTML;
+  const footer = document.getElementById('modal-footer');
+  footer.innerHTML = footerHTML || '';
+  footer.style.display = footerHTML ? '' : 'none';
+  document.getElementById('modal-overlay').classList.add('active');
+}
+
+function hideModal() {
+  document.getElementById('modal-overlay').classList.remove('active');
+}
+
+function showConfirmModal(message, onConfirm) {
+  showModal({
+    title: t('confirm.title'),
+    bodyHTML: `<p style="font-size:15px;line-height:1.6;color:var(--text-muted)">${esc(message)}</p>`,
+    footerHTML: `
+      <button class="btn btn--danger" id="confirm-yes">${esc(t('confirm.delete'))}</button>
+      <button class="btn btn--secondary" id="confirm-no">${esc(t('confirm.cancel'))}</button>
+    `
+  });
+  document.getElementById('confirm-yes').addEventListener('click', () => { hideModal(); onConfirm(); });
+  document.getElementById('confirm-no').addEventListener('click', hideModal);
+}
+
+// ─── TOAST ──────────────────────────────────────────────────────────────────
+
+function showToast(message, type) {
+  const el = document.createElement('div');
+  el.className = `toast toast--${type || 'info'}`;
+  el.textContent = message;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => {
+    el.classList.add('removing');
+    setTimeout(() => el.remove(), 320);
+  }, 2500);
+}
+
+// ─── LOADING ────────────────────────────────────────────────────────────────
+
+function showLoading() {
+  document.getElementById('loading-overlay')?.classList.add('active');
+}
+
+function hideLoading() {
+  document.getElementById('loading-overlay')?.classList.remove('active');
+}
+
+// ─── MATCH CARD ─────────────────────────────────────────────────────────────
+
+function createMatchCard(match, { onDeleteDone } = {}) {
+  const p1 = getPlayerById(match.player1Id);
+  const p2 = getPlayerById(match.player2Id);
+  const p1Name = p1?.name || 'Unknown';
+  const p2Name = p2?.name || 'Unknown';
+  const { p1: s1, p2: s2 } = countSetWins(match.sets || []);
+  const p1Won = match.winnerId === match.player1Id;
+  const p2Won = match.winnerId === match.player2Id;
+
+  const card = document.createElement('div');
+  card.className = 'match-card';
+
+  card.innerHTML = `
+    <div class="match-card__header">
+      <div class="match-card__players">
+        <span class="match-card__player ${p1Won ? 'match-card__player--winner' : ''}">${esc(p1Name)}</span>
+        <span class="match-card__vs">vs</span>
+        <span class="match-card__player ${p2Won ? 'match-card__player--winner' : ''}">${esc(p2Name)}</span>
+      </div>
+      <span class="match-card__score">${s1}\u2013${s2}</span>
+    </div>
+    <div class="match-card__sets">${formatSets(match.sets)}</div>
+    <div class="match-card__meta">
+      <span class="match-card__time">${relativeTime(match.date)}</span>
+      ${match.note ? `<span class="match-card__note">${esc(match.note)}</span>` : ''}
+    </div>
+  `;
+
+  if (state.me.role === 'admin') {
+    initSwipeToDelete(card, () => {
+      showConfirmModal(t('confirm.title'), async () => {
+        try {
+          await deleteMatch(match.id);
+          showToast(t('toast.matchDeleted'), 'success');
+          if (onDeleteDone) onDeleteDone();
+        } catch(e) {
+          showToast(t('toast.matchDeleteError'), 'error');
+        }
+      });
+    });
+  }
+
+  return card;
+}
+
+// ─── SWIPE TO DELETE ────────────────────────────────────────────────────────
+
+function initSwipeToDelete(el, onDelete) {
+  let startX = 0, startY = 0, active = false;
+  const THRESHOLD = 65;
+
+  el.addEventListener('touchstart', e => {
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    active = true;
+  }, { passive: true });
+
+  el.addEventListener('touchmove', e => {
+    if (!active) return;
+    const dx = e.touches[0].clientX - startX;
+    const dy = e.touches[0].clientY - startY;
+    if (Math.abs(dy) > Math.abs(dx)) { active = false; el.style.transform = ''; return; }
+    if (dx < 0) el.style.transform = `translateX(${Math.max(dx, -80)}px)`;
+  }, { passive: true });
+
+  el.addEventListener('touchend', e => {
+    if (!active) return;
+    active = false;
+    const dx = e.changedTouches[0].clientX - startX;
+    el.style.transform = '';
+    if (dx < -THRESHOLD) onDelete();
+  });
+}
+
+// ─── FILTER HELPER ──────────────────────────────────────────────────────────
+
+function populateFilter(sel, currentVal, defaultLabel) {
+  const players = loadPlayers();
+  sel.innerHTML = `<option value="">${defaultLabel}</option>` +
+    players.map(p => `<option value="${esc(p.id)}" ${currentVal===p.id?'selected':''}>${esc(p.name)}</option>`).join('');
+  if (currentVal) sel.value = currentVal;
+}
+
+// ─── NAVIGATION ─────────────────────────────────────────────────────────────
+
+let _navCounter = 0;
+
+async function navigateTo(tabId, renderFns) {
+  const navId = ++_navCounter;
+
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.bottom-nav__item').forEach(b => b.classList.remove('active'));
+
+  const panel = document.getElementById('tab-' + tabId);
+  if (panel) panel.classList.add('active');
+  const btn = document.querySelector(`[data-tab="${tabId}"]`);
+  if (btn) btn.classList.add('active');
+
+  state.currentTab = tabId;
+  document.querySelector('.tab-content').scrollTop = 0;
+
+  showLoading();
+
+  try {
+    const { refreshAll } = await import('./state.js');
+    await refreshAll();
+  } catch(e) {
+    if (!state.isOnline) {
+      // Offline — use cached state
+    } else {
+      showToast(t('toast.dataError'), 'error');
+      hideLoading();
+      return;
+    }
+  }
+
+  if (navId !== _navCounter) return;
+
+  await renderFns[tabId]?.();
+
+  hideLoading();
+}
+
+export {
+  showModal, hideModal, showConfirmModal, showToast,
+  showLoading, hideLoading,
+  createMatchCard, initSwipeToDelete,
+  populateFilter,
+  navigateTo, _navCounter
+};

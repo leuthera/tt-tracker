@@ -4,7 +4,16 @@ const CACHE_NAME = 'tt-tracker-v2';
 const APP_SHELL = [
   '/',
   '/manifest.json',
-  '/icon.svg'
+  '/icon.svg',
+  '/js/app.js',
+  '/js/i18n.js',
+  '/js/state.js',
+  '/js/helpers.js',
+  '/js/stats.js',
+  '/js/ui.js',
+  '/js/export.js',
+  '/js/render.js',
+  '/js/users.js'
 ];
 
 // ─── IndexedDB Queue Helpers ────────────────────────────────────────────────

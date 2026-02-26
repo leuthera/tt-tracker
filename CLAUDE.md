@@ -17,7 +17,7 @@
 
 ```bash
 nvm use 22                   # MUST run before tests
-npm test                     # All tests (~101 tests, node:test)
+npm test                     # All tests (~141 tests, node:test)
 npm run test:unit            # Unit tests only (fast)
 npm run test:integration     # Integration tests only (spawns real processes)
 npm run lint                 # ESLint — no-undef + no-unused-vars only
@@ -25,19 +25,29 @@ npm run lint                 # ESLint — no-undef + no-unused-vars only
 
 ## Architecture
 
-- **server.js** — Express app (port 8000): auth, sessions, API proxy to db-service, serves static files
+- **server.js** — Express app (port 8000): auth, sessions, API proxy to db-service, serves static files + `js/`
 - **db-service.js** — SQLite REST microservice (port 3000, internal only): CRUD via better-sqlite3
-- **index.html** — Entire frontend in one file (~3000 lines, vanilla JS + CSS, no build step)
+- **index.html** — Frontend shell (~1240 lines: HTML + inline CSS, no JS). JS is in `js/` modules.
+- **js/** — Frontend ES modules (browser-native, no build step):
+  - `i18n.js` — translations (EN/DE), language helpers
+  - `state.js` — app state, API fetch, CRUD operations
+  - `helpers.js` — esc, avatar, relativeTime, dateGroup, formatSets
+  - `stats.js` — pure stats functions (computeStats, getLeaderboard, computeH2H)
+  - `ui.js` — modal, toast, loading, match card, swipe-to-delete, navigation
+  - `export.js` — CSV/JSON export
+  - `render.js` — all render* functions for each tab
+  - `users.js` — user management modals (admin)
+  - `app.js` — entry point: event listeners, theme, offline/sync, init
 - **sw.js** — Service worker: caching, offline queue (IndexedDB), background sync
-- **lib/helpers.js** — Shared utilities (password hashing, DB row transformers, match logic, CSV escaping)
+- **lib/helpers.js** — Shared server utilities (password hashing, DB row transformers, match logic, CSV escaping)
 - **test/helpers/setup.js** — Test utilities (spawn servers, login, create users)
 
 server.js never touches SQLite directly — it calls db-service.js over HTTP with Bearer token auth.
 
 ## Code Style
 
-- `'use strict';` at top of every JS file
-- CommonJS (`require` / `module.exports`), no ESM
+- `'use strict';` at top of every backend JS file
+- Backend: CommonJS (`require` / `module.exports`). Frontend: ES modules (`import`/`export`)
 - Semicolons required
 - camelCase for JS, snake_case for DB columns, UPPER_CASE for env constants
 - Section dividers: `// ─── SECTION NAME ──────`

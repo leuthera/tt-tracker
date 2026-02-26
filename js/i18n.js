@@ -1,0 +1,215 @@
+// ─── I18N — Translations, Language Helpers ──────────────────────────────────
+
+const AVATAR_COLORS = [
+  '#e53935','#8e24aa','#1e88e5','#00897b',
+  '#f4511e','#6d4c41','#3949ab','#00838f',
+  '#558b2f','#6a1b9a'
+];
+
+const translations = {
+  en: {
+    // Nav
+    'nav.home': 'Home', 'nav.new': 'New', 'nav.players': 'Players',
+    'nav.history': 'History', 'nav.stats': 'Stats',
+    // Header
+    'header.signOut': 'Sign out', 'header.exportData': 'Export data',
+    // Welcome
+    'home.ready': 'Ready to play?', 'home.trackResults': 'Track your table tennis results',
+    'home.newMatch': '+ New Match',
+    // Recent matches
+    'home.recentMatches': 'Recent Matches', 'home.viewAll': 'View all',
+    'home.noMatchesTitle': 'No matches yet', 'home.noMatchesText': 'Log your first game to get started!',
+    // Top players
+    'home.players': 'Players', 'home.addPlayers': 'Add players',
+    'home.noPlayersTitle': 'No players yet', 'home.noPlayersText': 'Add players to start tracking matches',
+    'home.topPlayers': 'Top Players', 'home.seeAllStats': 'See all stats',
+    // New match
+    'match.players': 'Players', 'match.selectPlayer': 'Select player\u2026',
+    'match.sets': 'Sets', 'match.addSet': '+ Add Set',
+    'match.result': 'Result', 'match.selectAndEnter': 'Select players & enter scores',
+    'match.selectDifferent': 'Select different players', 'match.enterScores': 'Enter scores',
+    'match.leads': '{name} leads {score}', 'match.tied': 'Tied {score}',
+    'match.noteLabel': 'Note (optional)', 'match.notePlaceholder': 'e.g. Friendly game, tournament...',
+    'match.save': 'Save Match', 'match.saving': 'Saving\u2026',
+    'match.saved': 'Match saved!', 'match.errorSave': 'Could not save match',
+    'match.errorBothPlayers': 'Please select both players',
+    'match.errorDifferent': 'Players must be different',
+    'match.errorOneSet': 'Add at least one set',
+    'match.errorSetDraw': 'Set {n}: scores must be different (no draws in table tennis)',
+    // Players
+    'players.addPlayer': '+ Add Player', 'players.noPlayersTitle': 'No players yet',
+    'players.noPlayersText': 'Tap "+ Add Player" to get started',
+    'players.matches': '{n} matches', 'players.match1': '1 match',
+    // Add player modal
+    'addPlayer.title': 'Add Player', 'addPlayer.nameLabel': 'Name',
+    'addPlayer.namePlaceholder': 'Enter player name\u2026', 'addPlayer.save': 'Add Player',
+    'addPlayer.added': '{name} added!',
+    // Player detail
+    'playerDetail.matchesPlayed': '{n} matches played', 'playerDetail.matchPlayed1': '1 match played',
+    'playerDetail.winRate': 'Win Rate', 'playerDetail.wl': 'W\u2013L',
+    'playerDetail.setsWon': 'Sets Won', 'playerDetail.pointsWon': 'Points Won',
+    'playerDetail.recentForm': 'Recent Form', 'playerDetail.h2h': 'Head to Head',
+    'playerDetail.delete': 'Delete Player',
+    'playerDetail.deleteConfirm': 'Delete {name}?',
+    'playerDetail.deleteWithMatches': 'This player has {n} match(es). Delete {name} AND all their matches?',
+    'playerDetail.deleteNowWithMatches': 'This player now has match history. Delete {name} AND all their matches?',
+    'playerDetail.deletedWithMatches': '{name} and their matches deleted',
+    'playerDetail.deleted': '{name} deleted',
+    'playerDetail.winStreak': '{n} win streak', 'playerDetail.lossStreak': '{n} loss streak',
+    // History
+    'history.allPlayers': 'All Players', 'history.noMatchesTitle': 'No matches found',
+    'history.noMatchesFiltered': 'No matches for this player yet',
+    'history.noMatchesAll': 'Log your first match!', 'history.errorLoad': 'Could not load matches',
+    // Date groups
+    'date.today': 'Today', 'date.yesterday': 'Yesterday',
+    // Stats
+    'stats.leaderboard': 'Leaderboard', 'stats.noPlayersTitle': 'No players yet',
+    'stats.noPlayersText': 'Add players to see the leaderboard',
+    'stats.playerStats': "{name}'s Stats", 'stats.back': '\u2190 All',
+    // Confirm
+    'confirm.title': 'Confirm', 'confirm.delete': 'Delete', 'confirm.cancel': 'Cancel',
+    // Toast
+    'toast.dataError': 'Could not load data', 'toast.matchDeleted': 'Match deleted',
+    'toast.matchDeleteError': 'Could not delete match',
+    // Export
+    'export.title': 'Export Data', 'export.description': 'Download your data as CSV or JSON files.',
+    'export.json': 'Export JSON', 'export.playersCSV': 'Export Players CSV',
+    'export.matchesCSV': 'Export Matches CSV',
+    'export.jsonDone': 'JSON exported', 'export.playersDone': 'Players CSV exported',
+    'export.matchesDone': 'Matches CSV exported',
+    // Users
+    'users.title': 'Manage Users', 'users.loading': 'Loading...',
+    'users.you': '(you)', 'users.resetPw': 'Reset pw',
+    'users.deleteBtn': 'Delete', 'users.addUser': 'Add User',
+    'users.failedLoad': 'Failed to load users',
+    'users.username': 'Username', 'users.password': 'Password', 'users.role': 'Role',
+    'users.userRole': 'User', 'users.adminRole': 'Admin',
+    'users.create': 'Create', 'users.back': 'Back',
+    'users.usernameAndPwRequired': 'Username and password required',
+    'users.pwMin4': 'Password must be at least 4 characters',
+    'users.created': 'User created',
+    'users.deleteConfirm': 'Delete user "{name}"? This cannot be undone.',
+    'users.deleted': 'User deleted',
+    // Reset password
+    'resetPw.title': 'Reset Password', 'resetPw.newPwFor': 'New password for {name}',
+    'resetPw.newPwPlaceholder': 'New password', 'resetPw.reset': 'Reset Password',
+    'resetPw.done': 'Password reset',
+    // Change own password
+    'changePw.title': 'Change Password', 'changePw.current': 'Current Password',
+    'changePw.new': 'New Password', 'changePw.currentPlaceholder': 'Current password',
+    'changePw.newPlaceholder': 'New password', 'changePw.save': 'Change Password',
+    'changePw.bothRequired': 'Both fields required', 'changePw.done': 'Password changed',
+    // Time
+    'time.justNow': 'just now', 'time.mAgo': '{n}m ago', 'time.hAgo': '{n}h ago',
+    'time.yesterday': 'Yesterday', 'time.dAgo': '{n}d ago',
+    // Offline
+    'offline.banner': 'You are offline. Changes will sync when back online.',
+    'offline.queued': 'Saved offline — will sync later',
+    'offline.syncOk': '{n} change(s) synced successfully',
+    'offline.syncFail': '{n} change(s) failed to sync',
+    'offline.syncMixed': '{ok} synced, {fail} failed',
+  },
+  de: {
+    'nav.home': 'Start', 'nav.new': 'Neu', 'nav.players': 'Spieler',
+    'nav.history': 'Verlauf', 'nav.stats': 'Statistik',
+    'header.signOut': 'Abmelden', 'header.exportData': 'Daten exportieren',
+    'home.ready': 'Bereit zu spielen?', 'home.trackResults': 'Verfolge deine Tischtennis-Ergebnisse',
+    'home.newMatch': '+ Neues Spiel',
+    'home.recentMatches': 'Letzte Spiele', 'home.viewAll': 'Alle anzeigen',
+    'home.noMatchesTitle': 'Noch keine Spiele', 'home.noMatchesText': 'Trage dein erstes Spiel ein!',
+    'home.players': 'Spieler', 'home.addPlayers': 'Spieler hinzuf\u00FCgen',
+    'home.noPlayersTitle': 'Noch keine Spieler', 'home.noPlayersText': 'F\u00FCge Spieler hinzu, um Spiele zu verfolgen',
+    'home.topPlayers': 'Top-Spieler', 'home.seeAllStats': 'Alle Statistiken',
+    'match.players': 'Spieler', 'match.selectPlayer': 'Spieler w\u00E4hlen\u2026',
+    'match.sets': 'S\u00E4tze', 'match.addSet': '+ Satz hinzuf\u00FCgen',
+    'match.result': 'Ergebnis', 'match.selectAndEnter': 'Spieler w\u00E4hlen & Punkte eingeben',
+    'match.selectDifferent': 'Verschiedene Spieler w\u00E4hlen', 'match.enterScores': 'Punkte eingeben',
+    'match.leads': '{name} f\u00FChrt {score}', 'match.tied': 'Unentschieden {score}',
+    'match.noteLabel': 'Notiz (optional)', 'match.notePlaceholder': 'z.B. Freundschaftsspiel, Turnier...',
+    'match.save': 'Spiel speichern', 'match.saving': 'Speichern\u2026',
+    'match.saved': 'Spiel gespeichert!', 'match.errorSave': 'Spiel konnte nicht gespeichert werden',
+    'match.errorBothPlayers': 'Bitte beide Spieler ausw\u00E4hlen',
+    'match.errorDifferent': 'Spieler m\u00FCssen unterschiedlich sein',
+    'match.errorOneSet': 'Mindestens einen Satz hinzuf\u00FCgen',
+    'match.errorSetDraw': 'Satz {n}: Punkte m\u00FCssen unterschiedlich sein (kein Unentschieden)',
+    'players.addPlayer': '+ Spieler hinzuf\u00FCgen', 'players.noPlayersTitle': 'Noch keine Spieler',
+    'players.noPlayersText': 'Tippe auf "+\u00A0Spieler hinzuf\u00FCgen"',
+    'players.matches': '{n} Spiele', 'players.match1': '1 Spiel',
+    'addPlayer.title': 'Spieler hinzuf\u00FCgen', 'addPlayer.nameLabel': 'Name',
+    'addPlayer.namePlaceholder': 'Spielername eingeben\u2026', 'addPlayer.save': 'Hinzuf\u00FCgen',
+    'addPlayer.added': '{name} hinzugef\u00FCgt!',
+    'playerDetail.matchesPlayed': '{n} Spiele gespielt', 'playerDetail.matchPlayed1': '1 Spiel gespielt',
+    'playerDetail.winRate': 'Siegquote', 'playerDetail.wl': 'S\u2013N',
+    'playerDetail.setsWon': 'S\u00E4tze gewonnen', 'playerDetail.pointsWon': 'Punkte gewonnen',
+    'playerDetail.recentForm': 'Letzte Form', 'playerDetail.h2h': 'Direktvergleich',
+    'playerDetail.delete': 'Spieler l\u00F6schen',
+    'playerDetail.deleteConfirm': '{name} l\u00F6schen?',
+    'playerDetail.deleteWithMatches': 'Dieser Spieler hat {n} Spiel(e). {name} UND alle Spiele l\u00F6schen?',
+    'playerDetail.deleteNowWithMatches': 'Dieser Spieler hat jetzt Spielverlauf. {name} UND alle Spiele l\u00F6schen?',
+    'playerDetail.deletedWithMatches': '{name} und alle Spiele gel\u00F6scht',
+    'playerDetail.deleted': '{name} gel\u00F6scht',
+    'playerDetail.winStreak': '{n} Siegesserie', 'playerDetail.lossStreak': '{n} Niederlagenserie',
+    'history.allPlayers': 'Alle Spieler', 'history.noMatchesTitle': 'Keine Spiele gefunden',
+    'history.noMatchesFiltered': 'Noch keine Spiele f\u00FCr diesen Spieler',
+    'history.noMatchesAll': 'Trage dein erstes Spiel ein!', 'history.errorLoad': 'Spiele konnten nicht geladen werden',
+    'date.today': 'Heute', 'date.yesterday': 'Gestern',
+    'stats.leaderboard': 'Rangliste', 'stats.noPlayersTitle': 'Noch keine Spieler',
+    'stats.noPlayersText': 'F\u00FCge Spieler hinzu, um die Rangliste zu sehen',
+    'stats.playerStats': 'Statistik von {name}', 'stats.back': '\u2190 Alle',
+    'confirm.title': 'Best\u00E4tigen', 'confirm.delete': 'L\u00F6schen', 'confirm.cancel': 'Abbrechen',
+    'toast.dataError': 'Daten konnten nicht geladen werden', 'toast.matchDeleted': 'Spiel gel\u00F6scht',
+    'toast.matchDeleteError': 'Spiel konnte nicht gel\u00F6scht werden',
+    'export.title': 'Daten exportieren', 'export.description': 'Lade deine Daten als CSV- oder JSON-Dateien herunter.',
+    'export.json': 'JSON exportieren', 'export.playersCSV': 'Spieler-CSV exportieren',
+    'export.matchesCSV': 'Spiele-CSV exportieren',
+    'export.jsonDone': 'JSON exportiert', 'export.playersDone': 'Spieler-CSV exportiert',
+    'export.matchesDone': 'Spiele-CSV exportiert',
+    'users.title': 'Benutzer verwalten', 'users.loading': 'Laden...',
+    'users.you': '(du)', 'users.resetPw': 'PW zur\u00FCcksetzen',
+    'users.deleteBtn': 'L\u00F6schen', 'users.addUser': 'Benutzer hinzuf\u00FCgen',
+    'users.failedLoad': 'Benutzer konnten nicht geladen werden',
+    'users.username': 'Benutzername', 'users.password': 'Passwort', 'users.role': 'Rolle',
+    'users.userRole': 'Benutzer', 'users.adminRole': 'Admin',
+    'users.create': 'Erstellen', 'users.back': 'Zur\u00FCck',
+    'users.usernameAndPwRequired': 'Benutzername und Passwort erforderlich',
+    'users.pwMin4': 'Passwort muss mindestens 4 Zeichen haben',
+    'users.created': 'Benutzer erstellt',
+    'users.deleteConfirm': 'Benutzer "{name}" l\u00F6schen? Dies kann nicht r\u00FCckg\u00E4ngig gemacht werden.',
+    'users.deleted': 'Benutzer gel\u00F6scht',
+    'resetPw.title': 'Passwort zur\u00FCcksetzen', 'resetPw.newPwFor': 'Neues Passwort f\u00FCr {name}',
+    'resetPw.newPwPlaceholder': 'Neues Passwort', 'resetPw.reset': 'Passwort zur\u00FCcksetzen',
+    'resetPw.done': 'Passwort zur\u00FCckgesetzt',
+    'changePw.title': 'Passwort \u00E4ndern', 'changePw.current': 'Aktuelles Passwort',
+    'changePw.new': 'Neues Passwort', 'changePw.currentPlaceholder': 'Aktuelles Passwort',
+    'changePw.newPlaceholder': 'Neues Passwort', 'changePw.save': 'Passwort \u00E4ndern',
+    'changePw.bothRequired': 'Beide Felder erforderlich', 'changePw.done': 'Passwort ge\u00E4ndert',
+    'time.justNow': 'gerade eben', 'time.mAgo': 'vor {n} Min.', 'time.hAgo': 'vor {n} Std.',
+    'time.yesterday': 'Gestern', 'time.dAgo': 'vor {n} Tagen',
+    'offline.banner': 'Du bist offline. \u00C4nderungen werden bei Verbindung synchronisiert.',
+    'offline.queued': 'Offline gespeichert \u2014 wird sp\u00E4ter synchronisiert',
+    'offline.syncOk': '{n} \u00C4nderung(en) erfolgreich synchronisiert',
+    'offline.syncFail': '{n} \u00C4nderung(en) konnten nicht synchronisiert werden',
+    'offline.syncMixed': '{ok} synchronisiert, {fail} fehlgeschlagen',
+  }
+};
+
+function getLang() {
+  return localStorage.getItem('lang') || 'en';
+}
+
+function setLang(lang) {
+  localStorage.setItem('lang', lang);
+}
+
+function t(key, params) {
+  const lang = getLang();
+  let str = (translations[lang] && translations[lang][key]) || translations.en[key] || key;
+  if (params) {
+    for (const [k, v] of Object.entries(params)) {
+      str = str.replace(new RegExp('\\{' + k + '\\}', 'g'), v);
+    }
+  }
+  return str;
+}
+
+export { AVATAR_COLORS, translations, getLang, setLang, t };
