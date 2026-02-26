@@ -296,9 +296,14 @@ app.get('/icon.svg', (req, res) => res.sendFile(path.join(__dirname, 'icon.svg')
 app.get('/sw.js', (req, res) => res.sendFile(path.join(__dirname, 'sw.js')));
 
 // ─── SERVE APP ────────────────────────────────────────────────────────────────
+const indexHTML = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8')
+  .replace('/css/styles.css', `/css/styles.css?v=${BUILD_SHA}`)
+  .replace('js/app.js', `js/app.js?v=${BUILD_SHA}`);
+
 app.get('/', requireAuth, (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
+  res.type('html').send(indexHTML);
 });
+app.use('/css', requireAuth, express.static(path.join(__dirname, 'css')));
 app.use('/js', requireAuth, express.static(path.join(__dirname, 'js')));
 
 // ─── HELPERS (imported from lib/helpers.js) ──────────────────────────────────

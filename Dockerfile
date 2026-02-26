@@ -14,6 +14,7 @@ COPY server.js index.html ./
 COPY manifest.json icon.svg sw.js ./
 COPY lib/ lib/
 COPY js/ js/
+COPY css/ css/
 
 EXPOSE 8000
 

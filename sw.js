@@ -1,10 +1,11 @@
 'use strict';
 
-const CACHE_NAME = 'tt-tracker-v4';
+const CACHE_NAME = 'tt-tracker-v5';
 const APP_SHELL = [
   '/',
   '/manifest.json',
   '/icon.svg',
+  '/css/styles.css',
   '/js/app.js',
   '/js/i18n.js',
   '/js/state.js',
@@ -189,9 +190,9 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Static assets — cache-first
+  // Static assets — cache-first (ignoreSearch so ?v=hash cache-busters match)
   event.respondWith(
-    caches.match(request).then((cached) => {
+    caches.match(request, { ignoreSearch: true }).then((cached) => {
       if (cached) return cached;
       return fetch(request).then((response) => {
         const clone = response.clone();
