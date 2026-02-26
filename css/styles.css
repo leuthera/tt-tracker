@@ -111,12 +111,12 @@ html, body {
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-  padding-bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px) + 16px);
+  padding-bottom: 16px;
+  margin-bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px));
 }
 
 .tab-panel {
   display: none;
-  min-height: 100%;
   padding: 12px 12px 0;
   animation: fadeIn 0.18s ease;
 }
