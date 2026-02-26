@@ -6,6 +6,7 @@ COPY db-service-package.json package.json
 RUN npm install --omit=dev
 
 COPY db-service.js .
+COPY lib/ lib/
 
 RUN mkdir -p /data
 
