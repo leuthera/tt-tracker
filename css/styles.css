@@ -112,6 +112,42 @@ html, body {
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   padding-bottom: 16px;
+  overscroll-behavior-y: contain;
+}
+
+/* === PULL TO REFRESH === */
+.pull-to-refresh {
+  height: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: height 0.2s ease;
+}
+.pull-to-refresh--pulling {
+  transition: none;
+}
+.pull-to-refresh--refreshing {
+  height: 48px;
+}
+.pull-to-refresh__spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.pull-to-refresh--pulling .pull-to-refresh__spinner,
+.pull-to-refresh--refreshing .pull-to-refresh__spinner {
+  opacity: 1;
+}
+.pull-to-refresh--refreshing .pull-to-refresh__spinner {
+  animation: ptr-spin 0.6s linear infinite;
+}
+@keyframes ptr-spin {
+  to { transform: rotate(360deg); }
 }
 
 .tab-panel {

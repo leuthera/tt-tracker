@@ -175,6 +175,7 @@
 - [x] Offline support — log matches offline, sync when back online
 - [x] Data export (CSV/JSON)
 - [x] Multi-language support (German/English)
+- [x] Pull-to-refresh — swipe down to refresh the current tab (native PWA feel)
 
 ## Locations
 

@@ -2,7 +2,7 @@
 
 import { t, getLang, setLang } from './i18n.js';
 import { state, apiFetch, refreshAll, logClientError } from './state.js';
-import { showToast, hideLoading, navigateTo, hideModal } from './ui.js';
+import { showToast, hideLoading, navigateTo, hideModal, initPullToRefresh } from './ui.js';
 import {
   setRenderFns,
   renderHome, renderNewMatchTab, renderPlayers, renderHistory, renderStats,
@@ -260,6 +260,12 @@ function attachListeners() {
     if (!btn) return;
     state.statsDateRange = btn.dataset.range;
     renderStats();
+  });
+
+  // Pull to refresh
+  initPullToRefresh(async () => {
+    await refreshAll();
+    await renderFns[state.currentTab]?.();
   });
 }
 

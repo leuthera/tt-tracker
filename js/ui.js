@@ -224,10 +224,51 @@ async function navigateTo(tabId, renderFns) {
   hideLoading();
 }
 
+// ─── PULL TO REFRESH ─────────────────────────────────────────────────────────
+
+function initPullToRefresh(onRefresh) {
+  const scrollEl = document.querySelector('.tab-content');
+  const ptrEl = document.getElementById('pull-to-refresh');
+  if (!scrollEl || !ptrEl) return;
+
+  const THRESHOLD = 60;
+  let startY = 0;
+  let pulling = false;
+
+  scrollEl.addEventListener('touchstart', e => {
+    if (scrollEl.scrollTop === 0) {
+      startY = e.touches[0].clientY;
+      pulling = true;
+    }
+  }, { passive: true });
+
+  scrollEl.addEventListener('touchmove', e => {
+    if (!pulling) return;
+    const dy = e.touches[0].clientY - startY;
+    if (dy < 0 || scrollEl.scrollTop > 0) { pulling = false; ptrEl.style.height = ''; ptrEl.classList.remove('pull-to-refresh--pulling'); return; }
+    ptrEl.classList.add('pull-to-refresh--pulling');
+    ptrEl.style.height = Math.min(dy * 0.4, THRESHOLD) + 'px';
+  }, { passive: true });
+
+  scrollEl.addEventListener('touchend', async () => {
+    if (!pulling) return;
+    pulling = false;
+    const h = parseFloat(ptrEl.style.height) || 0;
+    ptrEl.classList.remove('pull-to-refresh--pulling');
+    ptrEl.style.height = '';
+    if (h >= THRESHOLD * 0.8) {
+      ptrEl.classList.add('pull-to-refresh--refreshing');
+      await onRefresh();
+      ptrEl.classList.remove('pull-to-refresh--refreshing');
+    }
+  });
+}
+
 export {
   showModal, hideModal, showConfirmModal, showToast,
   showLoading, hideLoading,
   createMatchCard, initSwipeToDelete,
   populateFilter,
-  navigateTo, _navCounter
+  navigateTo, _navCounter,
+  initPullToRefresh
 };
