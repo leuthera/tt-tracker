@@ -190,6 +190,7 @@
 - [x] Role-based permissions (admin/user) — only admins can delete players, matches, and manage users
 - [x] Users can change their own password
 - [x] Auto-create a player when a new user is created
+- [ ] User groups — users can create their own groups with separate player pools. The creator becomes group admin and can invite/manage members. Each group sees only its own players, matches, and stats
 
 ## Testing
 

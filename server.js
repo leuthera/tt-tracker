@@ -176,21 +176,21 @@ const loginHTML = `<!DOCTYPE html>
     }
     html, body {
       height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #f0f4f0; display: flex; align-items: center; justify-content: center;
+      background: #fff; display: flex; align-items: center; justify-content: center;
       -webkit-tap-highlight-color: transparent;
     }
-    [data-theme="dark"] body { background: #1a1d1a; }
+    [data-theme="dark"] body { background: #242824; }
     .card {
-      background: #fff; border-radius: var(--radius-lg); padding: 32px 24px;
-      width: 100%; max-width: 360px; margin: 0 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+      background: #fff; padding: 32px 24px;
+      width: 100%; max-width: 480px;
     }
-    @media (max-width: 400px) {
-      .card { margin: 0; border-radius: 0; box-shadow: none; min-height: 100%; display: flex; flex-direction: column; justify-content: center; }
-      html, body { background: #fff; }
-      [data-theme="dark"] body { background: #242824; }
-      [data-theme="dark"] .card { background: #242824; }
+    [data-theme="dark"] .card { background: #242824; }
+    @media (min-width: 480px) {
+      html, body { background: #f0f4f0; }
+      [data-theme="dark"] body { background: #1a1d1a; }
+      .card { border-radius: var(--radius-lg); max-width: 360px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+      [data-theme="dark"] .card { box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
     }
-    [data-theme="dark"] .card { background: #242824; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
     [data-theme="dark"] input { background: #2a2e2a; border-color: #3a3e3a; color: #e0e4e0; }
     [data-theme="dark"] input:focus { box-shadow: 0 0 0 3px rgba(76,175,80,0.2); }
     [data-theme="dark"] .error { background: rgba(239,83,80,0.15); color: #ef5350; }
