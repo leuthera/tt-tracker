@@ -1,7 +1,7 @@
 // ─── App Entry Point ────────────────────────────────────────────────────────
 
 import { t, getLang, setLang } from './i18n.js';
-import { state, apiFetch, refreshAll } from './state.js';
+import { state, apiFetch, refreshAll, logClientError } from './state.js';
 import { showToast, hideLoading, navigateTo, hideModal } from './ui.js';
 import {
   setRenderFns,
@@ -10,6 +10,34 @@ import {
 } from './render.js';
 import { showUsersModal, showChangePasswordModal } from './users.js';
 import { showExportModal } from './export.js';
+
+// ─── Global Error Reporting ─────────────────────────────────────────────────
+
+let _lastErrorMsg = '';
+let _lastErrorTime = 0;
+
+function _shouldReport(msg) {
+  const now = Date.now();
+  if (msg === _lastErrorMsg && now - _lastErrorTime < 5000) return false;
+  _lastErrorMsg = msg;
+  _lastErrorTime = now;
+  return true;
+}
+
+window.onerror = (message, source, lineno, colno) => {
+  const msg = String(message);
+  if (_shouldReport(msg)) {
+    logClientError({ message: msg, url: source, line: lineno, col: colno });
+  }
+};
+
+window.addEventListener('unhandledrejection', (event) => {
+  const msg = event.reason instanceof Error ? event.reason.message : String(event.reason);
+  if (_shouldReport(msg)) {
+    const stack = event.reason instanceof Error ? event.reason.stack : undefined;
+    logClientError({ message: msg, stack, url: location.href });
+  }
+});
 
 // ─── Render function map ────────────────────────────────────────────────────
 

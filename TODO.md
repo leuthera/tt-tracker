@@ -139,7 +139,7 @@
 
 ## Observability
 
-- [ ] Add JS error logging endpoint to the server to detect frontend errors
+- [x] Add JS error logging endpoint to the server to detect frontend errors
 
 ## Quality of Life
 

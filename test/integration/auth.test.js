@@ -97,17 +97,66 @@ describe('auth', () => {
     assert.equal(body.sha, 'dev');
   });
 
-  // ── Current user info ───────────────────────────────────────────────────────
+  // ── Current user info & client error logging ────────────────────────────────
+  // Share a single login across these tests to stay within the rate limit
+  let sharedCookie;
+
   it('GET /api/me returns current user info', async () => {
-    const cookie = await login(server.url);
+    sharedCookie = await login(server.url);
     const res = await fetch(`${server.url}/api/me`, {
-      headers: { Cookie: cookie },
+      headers: { Cookie: sharedCookie },
     });
     assert.equal(res.status, 200);
     const body = await res.json();
     assert.equal(body.username, 'admin');
     assert.equal(body.role, 'admin');
     assert.ok(body.userId);
+  });
+
+  describe('POST /api/client-errors', () => {
+
+    it('returns 200 with valid payload', async () => {
+      const res = await fetch(`${server.url}/api/client-errors`, {
+        method: 'POST',
+        headers: { Cookie: sharedCookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: 'Test error', url: 'http://localhost/', line: 42, col: 10 }),
+      });
+      assert.equal(res.status, 200);
+      const body = await res.json();
+      assert.equal(body.ok, true);
+    });
+
+    it('returns 401 without auth', async () => {
+      const res = await fetch(`${server.url}/api/client-errors`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: 'Test error' }),
+      });
+      assert.equal(res.status, 401);
+    });
+
+    it('returns 400 when message is missing', async () => {
+      const res = await fetch(`${server.url}/api/client-errors`, {
+        method: 'POST',
+        headers: { Cookie: sharedCookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: 'http://localhost/' }),
+      });
+      assert.equal(res.status, 400);
+      const body = await res.json();
+      assert.ok(body.error.includes('message'));
+    });
+
+    it('accepts long messages', async () => {
+      const longMsg = 'x'.repeat(2000);
+      const res = await fetch(`${server.url}/api/client-errors`, {
+        method: 'POST',
+        headers: { Cookie: sharedCookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: longMsg }),
+      });
+      assert.equal(res.status, 200);
+      const body = await res.json();
+      assert.equal(body.ok, true);
+    });
   });
 
   // ── Role-based access ──────────────────────────────────────────────────────
@@ -206,15 +255,11 @@ describe('auth', () => {
 
   // ── Admin user management ─────────────────────────────────────────────────
   describe('admin user management', () => {
-    let adminCookie, createdUserId;
-
-    before(async () => {
-      adminCookie = await login(server.url);
-    });
+    let createdUserId;
 
     it('admin can list users', async () => {
       const res = await fetch(`${server.url}/api/users`, {
-        headers: { Cookie: adminCookie },
+        headers: { Cookie: sharedCookie },
       });
       assert.equal(res.status, 200);
       const body = await res.json();
@@ -226,7 +271,7 @@ describe('auth', () => {
     it('admin can create a user', async () => {
       const res = await fetch(`${server.url}/api/users`, {
         method: 'POST',
-        headers: { Cookie: adminCookie, 'Content-Type': 'application/json' },
+        headers: { Cookie: sharedCookie, 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: 'newuser', password: 'pass1234', role: 'user' }),
       });
       assert.equal(res.status, 200);
@@ -239,7 +284,7 @@ describe('auth', () => {
     it('admin can reset user password', async () => {
       const res = await fetch(`${server.url}/api/users/${createdUserId}/password`, {
         method: 'PUT',
-        headers: { Cookie: adminCookie, 'Content-Type': 'application/json' },
+        headers: { Cookie: sharedCookie, 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: 'reset1234' }),
       });
       assert.equal(res.status, 200);
@@ -251,13 +296,13 @@ describe('auth', () => {
 
     it('admin cannot delete self', async () => {
       const meRes = await fetch(`${server.url}/api/me`, {
-        headers: { Cookie: adminCookie },
+        headers: { Cookie: sharedCookie },
       });
       const me = await meRes.json();
 
       const res = await fetch(`${server.url}/api/users/${me.userId}`, {
         method: 'DELETE',
-        headers: { Cookie: adminCookie },
+        headers: { Cookie: sharedCookie },
       });
       assert.equal(res.status, 400);
       const body = await res.json();
@@ -267,7 +312,7 @@ describe('auth', () => {
     it('admin can delete a user', async () => {
       const res = await fetch(`${server.url}/api/users/${createdUserId}`, {
         method: 'DELETE',
-        headers: { Cookie: adminCookie },
+        headers: { Cookie: sharedCookie },
       });
       assert.equal(res.status, 200);
 
@@ -284,7 +329,7 @@ describe('auth', () => {
     it('rejects duplicate username', async () => {
       const res = await fetch(`${server.url}/api/users`, {
         method: 'POST',
-        headers: { Cookie: adminCookie, 'Content-Type': 'application/json' },
+        headers: { Cookie: sharedCookie, 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: 'admin', password: 'test1234' }),
       });
       assert.equal(res.status, 400);
@@ -295,10 +340,11 @@ describe('auth', () => {
     it('rejects short password', async () => {
       const res = await fetch(`${server.url}/api/users`, {
         method: 'POST',
-        headers: { Cookie: adminCookie, 'Content-Type': 'application/json' },
+        headers: { Cookie: sharedCookie, 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: 'shortpw', password: 'ab' }),
       });
       assert.equal(res.status, 400);
     });
   });
+
 });

@@ -290,6 +290,48 @@ app.get('/api/version', (req, res) => {
   res.json({ sha: BUILD_SHA });
 });
 
+// ─── CLIENT ERROR LOGGING ────────────────────────────────────────────────────
+const clientErrorCounts = new Map(); // sessionId -> { count, resetAt }
+const CLIENT_ERROR_RATE_LIMIT = 20;
+
+app.post('/api/client-errors', requireAuth, (req, res) => {
+  // Rate limit per session
+  const sid = req.sessionID;
+  const now = Date.now();
+  const entry = clientErrorCounts.get(sid);
+  if (!entry || now > entry.resetAt) {
+    clientErrorCounts.set(sid, { count: 1, resetAt: now + RATE_LIMIT_WINDOW });
+  } else {
+    entry.count++;
+    if (entry.count > CLIENT_ERROR_RATE_LIMIT) {
+      return res.json({ ok: true });
+    }
+  }
+
+  const { message, stack, url, line, col, userAgent } = req.body;
+  if (typeof message !== 'string' || !message.trim()) {
+    return res.status(400).json({ error: 'message is required' });
+  }
+
+  const safeMsg = message.slice(0, 1000);
+  const safeStack = typeof stack === 'string' ? stack.slice(0, 4000) : '';
+  const safeUrl = typeof url === 'string' ? url.slice(0, 500) : '';
+  const safeLine = typeof line === 'number' ? line : '';
+  const safeCol = typeof col === 'number' ? col : '';
+  const safeUA = typeof userAgent === 'string' ? userAgent.slice(0, 300) : '';
+
+  console.error(`[CLIENT ERROR] user=${req.session.username} url=${safeUrl} line=${safeLine} col=${safeCol} ua=${safeUA} message=${safeMsg}${safeStack ? '\n' + safeStack : ''}`);
+  res.json({ ok: true });
+});
+
+// Clean up stale client error entries every 15 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [sid, entry] of clientErrorCounts) {
+    if (now > entry.resetAt) clientErrorCounts.delete(sid);
+  }
+}, RATE_LIMIT_WINDOW).unref();
+
 // ─── PWA STATIC FILES (before auth) ──────────────────────────────────────────
 app.get('/manifest.json', (req, res) => res.sendFile(path.join(__dirname, 'manifest.json')));
 app.get('/icon.svg', (req, res) => res.sendFile(path.join(__dirname, 'icon.svg')));

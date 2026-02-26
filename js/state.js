@@ -97,10 +97,21 @@ async function deleteMatch(id) {
   await refreshMatches();
 }
 
+// ─── CLIENT ERROR REPORTING ─────────────────────────────────────────────────
+
+function logClientError({ message, stack, url, line, col }) {
+  fetch('/api/client-errors', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, stack, url, line, col, userAgent: navigator.userAgent }),
+  }).catch(() => {});
+}
+
 export {
   state, apiFetch,
   loadPlayers, loadMatches, getPlayerById,
   refreshAll, refreshPlayers, refreshMatches,
   addPlayer, deletePlayer,
-  addMatch, deleteMatch
+  addMatch, deleteMatch,
+  logClientError
 };
