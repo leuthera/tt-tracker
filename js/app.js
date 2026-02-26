@@ -247,7 +247,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   attachListeners();
   try {
     const [, me, ver] = await Promise.all([
-      refreshAll(),
+      refreshAll().catch(() => {}),
       apiFetch('/api/me').catch(() => null),
       fetch('/api/version').then(r => r.json()).catch(() => null),
     ]);
