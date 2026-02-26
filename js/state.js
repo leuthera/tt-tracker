@@ -8,7 +8,7 @@ const state = {
   historyFilter: '',
   statsFilter: '',
   me: { role: 'user', username: '' },
-  isOnline: navigator.onLine,
+  isOnline: typeof navigator !== 'undefined' ? navigator.onLine : true,
   pendingSync: 0
 };
 
