@@ -81,8 +81,7 @@ function updateStaticLabels() {
     const label = btn.querySelector('.bottom-nav__label');
     if (label && navKeys[i]) label.textContent = t(navKeys[i]);
   });
-  const logoutBtn = document.querySelector('form[action="/logout"] button');
-  if (logoutBtn) logoutBtn.textContent = t('header.signOut');
+  // Sign out button is now an icon — no text update needed
   const playersLabel = document.querySelector('#tab-new-match .form-label');
   if (playersLabel) playersLabel.textContent = t('match.players');
   const setsLabel = document.querySelectorAll('#tab-new-match .form-label')[1];
