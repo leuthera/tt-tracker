@@ -1106,6 +1106,7 @@
       <button class="theme-toggle" id="export-btn" aria-label="Export data" title="Export data">&#8615;</button>
       <button class="theme-toggle" id="theme-toggle-btn" aria-label="Toggle dark mode">🌙</button>
       <button id="users-btn" aria-label="Manage users" style="display:none;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:#fff;border-radius:50%;width:32px;height:32px;font-size:16px;cursor:pointer;padding:0;line-height:1">&#9881;</button>
+      <button id="change-pw-header-btn" class="theme-toggle" aria-label="Change password" title="Change password" style="display:none">&#128274;</button>
       <form method="POST" action="/logout" style="margin:0">
         <button type="submit" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:#fff;border-radius:20px;padding:6px 14px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">Sign out</button>
       </form>
@@ -1571,13 +1572,6 @@
       else if (Number(s.p2) > Number(s.p1)) acc.p2++;
       return acc;
     }, { p1: 0, p2: 0 });
-  }
-
-  function determineWinner(sets, p1Id, p2Id) {
-    const { p1, p2 } = countSetWins(sets);
-    if (p1 > p2) return p1Id;
-    if (p2 > p1) return p2Id;
-    return null;
   }
 
   // =============================================
@@ -2319,6 +2313,7 @@
     if (state.me.role !== 'admin') return;
     document.getElementById('modal-delete-player').addEventListener('click', () => {
       hideModal();
+      const playerMatches = loadMatches().filter(m => m.player1Id === playerId || m.player2Id === playerId);
       const hasMatches = playerMatches.length > 0;
       const msg = hasMatches
         ? t('playerDetail.deleteWithMatches', { n: playerMatches.length, name: player.name })
@@ -2838,7 +2833,6 @@
     // Language toggle
     function updateStaticLabels() {
       // Nav labels
-      const navLabels = ['home', 'new-match', 'players', 'history', 'stats'];
       const navKeys  = ['nav.home', 'nav.new', 'nav.players', 'nav.history', 'nav.stats'];
       document.querySelectorAll('.bottom-nav__item').forEach((btn, i) => {
         const label = btn.querySelector('.bottom-nav__label');
@@ -2967,6 +2961,8 @@
           document.getElementById('users-btn').style.display = '';
           document.getElementById('users-btn').addEventListener('click', showUsersModal);
         }
+        document.getElementById('change-pw-header-btn').style.display = '';
+        document.getElementById('change-pw-header-btn').addEventListener('click', showChangePasswordModal);
       }
       if (ver && ver.sha && ver.sha !== 'dev') {
         const badge = document.getElementById('version-badge');

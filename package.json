@@ -6,7 +6,8 @@
   "scripts": {
     "test": "node --test test/**/*.test.js",
     "test:unit": "node --test test/unit/**/*.test.js",
-    "test:integration": "node --test test/integration/**/*.test.js"
+    "test:integration": "node --test test/integration/**/*.test.js",
+    "lint": "eslint server.js db-service.js lib/ sw.js index.html test/"
   },
   "keywords": [],
   "author": "",
@@ -16,6 +17,9 @@
     "express-session": "^1.19.0"
   },
   "devDependencies": {
-    "better-sqlite3": "^12.6.2"
+    "better-sqlite3": "^12.6.2",
+    "eslint": "^9.39.3",
+    "eslint-plugin-html": "^8.1.4",
+    "globals": "^17.3.0"
   }
 }

@@ -45,7 +45,7 @@ const net = require('net');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
-const { hashPassword, verifyPassword, dbToPlayer, dbToMatch, dbToUser, countSetWins, determineWinner } = require('./lib/helpers');
+const { hashPassword, verifyPassword, dbToPlayer, dbToMatch, dbToUser, determineWinner } = require('./lib/helpers');
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const ADMIN_USER = process.env.ADMIN_USER || 'admin';

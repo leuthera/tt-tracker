@@ -20,6 +20,7 @@ nvm use 22                   # MUST run before tests
 npm test                     # All tests (~101 tests, node:test)
 npm run test:unit            # Unit tests only (fast)
 npm run test:integration     # Integration tests only (spawns real processes)
+npm run lint                 # ESLint — no-undef + no-unused-vars only
 ```
 
 ## Architecture
@@ -40,7 +41,7 @@ server.js never touches SQLite directly — it calls db-service.js over HTTP wit
 - Semicolons required
 - camelCase for JS, snake_case for DB columns, UPPER_CASE for env constants
 - Section dividers: `// ─── SECTION NAME ──────`
-- No linter — match existing style exactly
+- ESLint for bug detection only (`no-undef`, `no-unused-vars`) — no style rules
 - Frontend is vanilla JS — no frameworks, no build tools, no npm packages
 
 ## Patterns to Follow
