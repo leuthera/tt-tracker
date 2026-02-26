@@ -27,7 +27,6 @@
   <header class="app-header">
     <div style="display:flex;align-items:center;gap:8px">
       <div class="app-header__title" style="position:relative">🏓 TT Tracker<span class="sync-badge" id="sync-badge">0</span></div>
-      <span id="version-badge" style="font-size:10px;color:rgba(255,255,255,0.5);font-weight:400;display:none"></span>
     </div>
     <div style="display:flex;align-items:center;gap:8px">
       <button class="theme-toggle" id="lang-toggle-btn" aria-label="Toggle language" style="font-size:12px;font-weight:700">EN</button>
@@ -36,7 +35,7 @@
       <button id="users-btn" aria-label="Manage users" style="display:none;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:#fff;border-radius:50%;width:32px;height:32px;font-size:16px;cursor:pointer;padding:0;line-height:1">&#9881;</button>
       <button id="change-pw-header-btn" class="theme-toggle" aria-label="Change password" title="Change password" style="display:none">&#128274;</button>
       <form method="POST" action="/logout" style="margin:0">
-        <button type="submit" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:#fff;border-radius:20px;padding:6px 14px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">Sign out</button>
+        <button type="submit" class="theme-toggle" aria-label="Sign out" title="Sign out">&#x23FB;</button>
       </form>
     </div>
   </header>

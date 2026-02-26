@@ -212,6 +212,15 @@ const loginHTML = `<!DOCTYPE html>
       background: rgba(198,40,40,0.1); color: #c62828; border-radius: 8px;
       padding: 10px 14px; font-size: 13px; margin-bottom: 16px; text-align: center;
     }
+    .install-btn {
+      width: 100%; padding: 14px; background: transparent; color: var(--primary);
+      border: 1.5px solid var(--primary); border-radius: var(--radius-md);
+      font-size: 15px; font-weight: 600; cursor: pointer; font-family: inherit;
+      margin-top: 12px; display: none; transition: background 0.15s, color 0.15s;
+    }
+    .install-btn:active { background: var(--primary); color: #fff; }
+    [data-theme="dark"] .install-btn { color: #4caf50; border-color: #4caf50; }
+    [data-theme="dark"] .install-btn:active { background: #4caf50; color: #fff; }
   </style>
 </head>
 <body>
@@ -230,6 +239,10 @@ const loginHTML = `<!DOCTYPE html>
              required placeholder="Enter password">
       <button type="submit"><span class="lang-en">Sign In</span><span class="lang-de" style="display:none">Anmelden</span></button>
     </form>
+    <button class="install-btn" id="install-btn">
+      <span class="lang-en">&#x2B07; Install App</span>
+      <span class="lang-de" style="display:none">&#x2B07; App installieren</span>
+    </button>
   </div>
   <script>
     (function() {
@@ -243,6 +256,21 @@ const loginHTML = `<!DOCTYPE html>
         document.getElementById('username').placeholder = 'Benutzername eingeben';
         document.getElementById('password').placeholder = 'Passwort eingeben';
       }
+      var deferredPrompt = null;
+      window.addEventListener('beforeinstallprompt', function(e) {
+        e.preventDefault();
+        deferredPrompt = e;
+        document.getElementById('install-btn').style.display = '';
+      });
+      document.getElementById('install-btn').addEventListener('click', function() {
+        if (!deferredPrompt) return;
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then(function() { deferredPrompt = null; });
+        document.getElementById('install-btn').style.display = 'none';
+      });
+      window.addEventListener('appinstalled', function() {
+        document.getElementById('install-btn').style.display = 'none';
+      });
     })();
   </script>
 </body>

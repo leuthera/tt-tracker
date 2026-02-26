@@ -359,10 +359,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('export-btn').addEventListener('click', showExportModal);
   attachListeners();
   try {
-    const [, me, ver] = await Promise.all([
+    const [, me] = await Promise.all([
       refreshAll().catch(() => {}),
       apiFetch('/api/me').catch(() => null),
-      fetch('/api/version').then(r => r.json()).catch(() => null),
     ]);
     if (me) {
       state.me = me;
@@ -372,11 +371,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       document.getElementById('change-pw-header-btn').style.display = '';
       document.getElementById('change-pw-header-btn').addEventListener('click', showChangePasswordModal);
-    }
-    if (ver && ver.sha && ver.sha !== 'dev') {
-      const badge = document.getElementById('version-badge');
-      badge.textContent = ver.sha.slice(0, 7);
-      badge.style.display = '';
     }
   } catch(e) {
     showToast(t('toast.dataError'), 'error');
