@@ -133,6 +133,10 @@
 - [ ] Shareable match result cards (generated image)
 - [ ] Challenge system — players can challenge each other to a match
 
+## Architecture
+
+- [ ] Refactor index.html — extract inline JS into separate modules with a modern, encapsulated, maintainable architecture
+
 ## Quality of Life
 
 - [x] Offline support — log matches offline, sync when back online
