@@ -182,7 +182,13 @@ const loginHTML = `<!DOCTYPE html>
     [data-theme="dark"] body { background: #1a1d1a; }
     .card {
       background: #fff; border-radius: var(--radius-lg); padding: 32px 24px;
-      width: 90%; max-width: 360px; box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+      width: 100%; max-width: 360px; margin: 0 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    }
+    @media (max-width: 400px) {
+      .card { margin: 0; border-radius: 0; box-shadow: none; min-height: 100%; display: flex; flex-direction: column; justify-content: center; }
+      html, body { background: #fff; }
+      [data-theme="dark"] body { background: #242824; }
+      [data-theme="dark"] .card { background: #242824; }
     }
     [data-theme="dark"] .card { background: #242824; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
     [data-theme="dark"] input { background: #2a2e2a; border-color: #3a3e3a; color: #e0e4e0; }
