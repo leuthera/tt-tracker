@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const {
   hashPassword, verifyPassword,
   countSetWins, determineWinner,
-  dbToPlayer, dbToMatch, dbToUser,
+  dbToPlayer, dbToMatch, dbToComment, dbToUser,
   csvEscape,
 } = require('../../lib/helpers');
 
@@ -79,7 +79,8 @@ describe('dbToMatch', () => {
       id: 'm_1', date: 1700000000,
       player1_id: 'p_1', player2_id: 'p_2',
       sets: '[{"p1":11,"p2":5}]',
-      winner_id: 'p_1', note: 'Great match'
+      winner_id: 'p_1', note: 'Great match',
+      creator_id: 'u_1'
     };
     const result = dbToMatch(row);
     assert.equal(result.id, 'm_1');
@@ -88,6 +89,7 @@ describe('dbToMatch', () => {
     assert.deepEqual(result.sets, [{ p1: 11, p2: 5 }]);
     assert.equal(result.winnerId, 'p_1');
     assert.equal(result.note, 'Great match');
+    assert.equal(result.creatorId, 'u_1');
   });
 
   it('returns null winnerId when not set', () => {
@@ -107,6 +109,29 @@ describe('dbToMatch', () => {
       sets: '[]', winner_id: null, note: null
     };
     assert.equal(dbToMatch(row).note, '');
+  });
+
+  it('returns null creatorId when not set', () => {
+    const row = {
+      id: 'm_1', date: 1700000000,
+      player1_id: 'p_1', player2_id: 'p_2',
+      sets: '[]', winner_id: null, note: ''
+    };
+    assert.equal(dbToMatch(row).creatorId, null);
+  });
+});
+
+describe('dbToComment', () => {
+  it('transforms a db row to API format', () => {
+    const row = {
+      id: 'c_1', match_id: 'm_1', user_id: 'u_1',
+      username: 'alice', text: 'Nice game!', created_at: 1700000000
+    };
+    const result = dbToComment(row);
+    assert.deepEqual(result, {
+      id: 'c_1', matchId: 'm_1', userId: 'u_1',
+      username: 'alice', text: 'Nice game!', createdAt: 1700000000
+    });
   });
 });
 

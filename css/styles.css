@@ -386,6 +386,63 @@ html, body {
   opacity: 1;
   color: var(--danger, #e53e3e);
 }
+.match-card__edit {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  opacity: 0.45;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 4px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.match-card__edit:hover {
+  opacity: 1;
+  color: var(--primary, #2d7a2d);
+}
+
+/* === COMMENT ITEM === */
+.comment-item {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.comment-item:last-child { border-bottom: none; }
+.comment-item__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+.comment-item__user {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.comment-item__time {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.comment-item__text {
+  font-size: 14px;
+  color: var(--text);
+  line-height: 1.4;
+}
+.comment-item__delete {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  opacity: 0.45;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0 4px;
+  margin-left: auto;
+  line-height: 1;
+}
+.comment-item__delete:hover {
+  opacity: 1;
+  color: var(--danger, #e53e3e);
+}
 
 /* === PLAYER ROW === */
 .player-row {

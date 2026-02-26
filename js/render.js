@@ -2,7 +2,7 @@
 
 import { t } from './i18n.js';
 import { esc, mkAvatar } from './helpers.js';
-import { state, loadPlayers, loadMatches, getPlayerById, loadLocations, addPlayer, deletePlayer, addMatch, apiFetch } from './state.js';
+import { state, loadPlayers, loadMatches, getPlayerById, loadLocations, addPlayer, deletePlayer, addMatch, updateMatch, getComments, addComment, deleteComment, apiFetch } from './state.js';
 import { countSetWins, computeStats, getLeaderboard, computeH2H } from './stats.js';
 import { showModal, hideModal, showConfirmModal, showToast, createMatchCard, populateFilter, navigateTo } from './ui.js';
 
@@ -69,7 +69,9 @@ function renderRecentMatches() {
     onDeleteDone: () => {
       if (state.currentTab === 'history') renderHistory();
       else renderHome();
-    }
+    },
+    onEdit: (match) => showEditMatchModal(match, () => renderHome()),
+    onDetail: (match) => showMatchDetailModal(match),
   })));
 
   el.textContent = '';
@@ -480,7 +482,9 @@ async function renderHistory() {
       onDeleteDone: () => {
         if (state.currentTab === 'history') renderHistory();
         else renderHome();
-      }
+      },
+      onEdit: (match) => showEditMatchModal(match, () => renderHistory()),
+      onDetail: (match) => showMatchDetailModal(match),
     })));
   }
 }
@@ -600,9 +604,202 @@ function renderPlayerStats(playerId) {
   });
 }
 
+// ─── RENDER: EDIT MATCH MODAL ──────────────────────────────────────────────
+
+function showEditMatchModal(match, onSaved) {
+  const p1 = getPlayerById(match.player1Id);
+  const p2 = getPlayerById(match.player2Id);
+  const locations = loadLocations();
+
+  const setsHTML = match.sets.map((s, i) => `
+    <div class="set-row">
+      <span class="set-row__label">S${i+1}</span>
+      <input class="set-row__score" type="number" inputmode="numeric" min="0" max="99"
+             value="${s.p1}" data-idx="${i}" data-pl="p1">
+      <span class="set-row__sep">\u2013</span>
+      <input class="set-row__score" type="number" inputmode="numeric" min="0" max="99"
+             value="${s.p2}" data-idx="${i}" data-pl="p2">
+    </div>
+  `).join('');
+
+  const locationOpts = locations.map(l =>
+    `<option value="${esc(l.id)}" ${match.locationId === l.id ? 'selected' : ''}>${esc(l.name)}</option>`
+  ).join('');
+
+  showModal({
+    title: t('match.edit'),
+    bodyHTML: `
+      <div style="margin-bottom:12px;color:var(--text-muted);font-size:14px">
+        ${esc(p1?.name || 'Unknown')} vs ${esc(p2?.name || 'Unknown')}
+      </div>
+      <div class="form-group">
+        <label class="form-label">${esc(t('match.sets'))}</label>
+        <div id="edit-sets-container">${setsHTML}</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="edit-match-note">${esc(t('match.noteLabel'))}</label>
+        <input type="text" class="form-input" id="edit-match-note" value="${esc(match.note)}" maxlength="500"
+               placeholder="${esc(t('match.notePlaceholder'))}">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="edit-match-location">${esc(t('match.locationLabel'))}</label>
+        <select class="form-input" id="edit-match-location">
+          <option value="">${esc(t('match.noLocation'))}</option>
+          ${locationOpts}
+        </select>
+      </div>
+    `,
+    footerHTML: `<button class="btn btn--primary" id="edit-match-save">${esc(t('match.editSave'))}</button>`
+  });
+
+  document.getElementById('edit-match-save').addEventListener('click', async () => {
+    const btn = document.getElementById('edit-match-save');
+    const container = document.getElementById('edit-sets-container');
+    const inputs = container.querySelectorAll('.set-row__score');
+    const sets = [];
+    for (let i = 0; i < inputs.length; i += 2) {
+      sets.push({ p1: Number(inputs[i].value) || 0, p2: Number(inputs[i+1].value) || 0 });
+    }
+
+    // Basic validation
+    for (let i = 0; i < sets.length; i++) {
+      if (sets[i].p1 === sets[i].p2) {
+        showToast(t('match.errorSetDraw', { n: i + 1 }), 'error');
+        return;
+      }
+    }
+
+    btn.disabled = true;
+    btn.textContent = t('match.editSaving');
+
+    try {
+      await updateMatch(match.id, {
+        sets,
+        note: document.getElementById('edit-match-note').value,
+        locationId: document.getElementById('edit-match-location').value || null,
+      });
+      hideModal();
+      showToast(t('match.editSaved'), 'success');
+      if (onSaved) onSaved();
+    } catch(e) {
+      showToast(e.message || t('match.editError'), 'error');
+      btn.disabled = false;
+      btn.textContent = t('match.editSave');
+    }
+  });
+}
+
+// ─── RENDER: MATCH DETAIL MODAL (with comments) ───────────────────────────
+
+function showMatchDetailModal(match) {
+  const p1 = getPlayerById(match.player1Id);
+  const p2 = getPlayerById(match.player2Id);
+  const { p1: s1, p2: s2 } = countSetWins(match.sets || []);
+  const { formatSets, relativeTime } = _helperCache;
+  const location = match.locationId ? loadLocations().find(l => l.id === match.locationId) : null;
+
+  showModal({
+    title: `${p1?.name || 'Unknown'} vs ${p2?.name || 'Unknown'}`,
+    bodyHTML: `
+      <div style="text-align:center;margin-bottom:12px">
+        <div style="font-size:24px;font-weight:700">${s1}\u2013${s2}</div>
+        <div style="font-size:13px;color:var(--text-muted)">${formatSets(match.sets)}</div>
+        ${match.note ? `<div style="font-size:13px;color:var(--text-muted);margin-top:4px">${esc(match.note)}</div>` : ''}
+        ${location ? `<div style="font-size:13px;color:var(--text-muted);margin-top:4px">&#x1F4CD; ${esc(location.name)}</div>` : ''}
+        <div style="font-size:12px;color:var(--text-muted);margin-top:4px">${relativeTime(match.date)}</div>
+      </div>
+      <div class="section__title" style="margin-bottom:8px">${esc(t('comments.title'))}</div>
+      <div id="comments-list" style="margin-bottom:12px"><div style="color:var(--text-muted);font-size:13px">${esc(t('comments.empty'))}</div></div>
+      <div style="display:flex;gap:8px">
+        <input type="text" class="form-input" id="comment-input" placeholder="${esc(t('comments.placeholder'))}" maxlength="500" style="flex:1;margin-bottom:0">
+        <button class="btn btn--primary" id="comment-send" style="white-space:nowrap">${esc(t('comments.send'))}</button>
+      </div>
+    `,
+    footerHTML: ''
+  });
+
+  loadAndRenderComments(match.id);
+
+  document.getElementById('comment-send').addEventListener('click', () => submitComment(match.id));
+  document.getElementById('comment-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') submitComment(match.id);
+  });
+}
+
+async function loadAndRenderComments(matchId) {
+  const listEl = document.getElementById('comments-list');
+  if (!listEl) return;
+  try {
+    const comments = await getComments(matchId);
+    if (comments.length === 0) {
+      listEl.innerHTML = `<div style="color:var(--text-muted);font-size:13px">${esc(t('comments.empty'))}</div>`;
+      return;
+    }
+    const { relativeTime } = _helperCache;
+    listEl.innerHTML = '';
+    comments.forEach(c => {
+      const item = document.createElement('div');
+      item.className = 'comment-item';
+      item.innerHTML = `
+        <div class="comment-item__header">
+          <span class="comment-item__user">${esc(c.username)}</span>
+          <span class="comment-item__time">${relativeTime(c.createdAt)}</span>
+        </div>
+        <div class="comment-item__text">${esc(c.text)}</div>
+      `;
+      if (state.me.role === 'admin') {
+        const delBtn = document.createElement('button');
+        delBtn.className = 'comment-item__delete';
+        delBtn.textContent = '\u00D7';
+        delBtn.addEventListener('click', async () => {
+          try {
+            await deleteComment(c.id);
+            showToast(t('comments.deleted'), 'success');
+            loadAndRenderComments(matchId);
+          } catch(e) {
+            showToast(t('comments.deleteError'), 'error');
+          }
+        });
+        item.querySelector('.comment-item__header').appendChild(delBtn);
+      }
+      listEl.appendChild(item);
+    });
+  } catch(e) {
+    listEl.innerHTML = '';
+  }
+}
+
+async function submitComment(matchId) {
+  const input = document.getElementById('comment-input');
+  const btn = document.getElementById('comment-send');
+  const text = input?.value.trim();
+  if (!text) return;
+
+  btn.disabled = true;
+  btn.textContent = t('comments.sending');
+  try {
+    await addComment(matchId, text);
+    input.value = '';
+    loadAndRenderComments(matchId);
+  } catch(e) {
+    showToast(e.message || t('comments.addError'), 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = t('comments.send');
+  }
+}
+
+// Cache for helper functions needed in detail modal
+const _helperCache = {};
+import('./helpers.js').then(m => {
+  _helperCache.formatSets = m.formatSets;
+  _helperCache.relativeTime = m.relativeTime;
+});
+
 export {
   setRenderFns,
   renderHome, renderNewMatchTab, renderPlayers, renderHistory, renderStats,
   showAddPlayerModal, showPlayerDetailModal,
+  showEditMatchModal, showMatchDetailModal,
   populatePlayerSelects, renderSetRows, updateResultPreview, submitMatch
 };

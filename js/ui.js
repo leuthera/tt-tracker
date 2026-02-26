@@ -58,7 +58,7 @@ function hideLoading() {
 
 // ─── MATCH CARD ─────────────────────────────────────────────────────────────
 
-function createMatchCard(match, { onDeleteDone } = {}) {
+function createMatchCard(match, { onDeleteDone, onEdit, onDetail } = {}) {
   const p1 = getPlayerById(match.player1Id);
   const p2 = getPlayerById(match.player2Id);
   const p1Name = p1?.name || 'Unknown';
@@ -69,6 +69,7 @@ function createMatchCard(match, { onDeleteDone } = {}) {
 
   const card = document.createElement('div');
   card.className = 'match-card';
+  if (onDetail) card.style.cursor = 'pointer';
 
   card.innerHTML = `
     <div class="match-card__header">
@@ -87,7 +88,23 @@ function createMatchCard(match, { onDeleteDone } = {}) {
     </div>
   `;
 
-  if (state.me.role === 'admin') {
+  if (onDetail) {
+    card.addEventListener('click', () => onDetail(match));
+  }
+
+  const canEdit = state.me.role === 'admin' || (match.creatorId && match.creatorId === state.me.userId);
+  const isAdmin = state.me.role === 'admin';
+
+  if (canEdit && onEdit) {
+    const editBtn = document.createElement('button');
+    editBtn.className = 'match-card__edit';
+    editBtn.setAttribute('aria-label', t('match.edit'));
+    editBtn.textContent = '\u270E';
+    editBtn.addEventListener('click', (e) => { e.stopPropagation(); onEdit(match); });
+    card.querySelector('.match-card__header').appendChild(editBtn);
+  }
+
+  if (isAdmin) {
     const onConfirmDelete = () => {
       showConfirmModal(t('confirm.title'), async () => {
         try {

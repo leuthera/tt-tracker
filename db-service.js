@@ -58,6 +58,21 @@ const matchCols = db.pragma('table_info(matches)').map(c => c.name);
 if (!matchCols.includes('location_id')) {
   db.exec('ALTER TABLE matches ADD COLUMN location_id TEXT');
 }
+if (!matchCols.includes('creator_id')) {
+  db.exec('ALTER TABLE matches ADD COLUMN creator_id TEXT');
+}
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS comments (
+    id TEXT PRIMARY KEY,
+    match_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    username TEXT NOT NULL,
+    text TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (match_id) REFERENCES matches(id)
+  );
+`);
 
 const stmts = {
   getPlayers:         db.prepare('SELECT * FROM players ORDER BY name COLLATE NOCASE'),
@@ -69,8 +84,15 @@ const stmts = {
   getMatch:           db.prepare('SELECT * FROM matches WHERE id = ?'),
   getMatches:         db.prepare('SELECT * FROM matches ORDER BY date DESC'),
   getMatchesByPlayer: db.prepare('SELECT * FROM matches WHERE player1_id = ? OR player2_id = ? ORDER BY date DESC'),
-  insertMatch:        db.prepare('INSERT INTO matches (id, date, player1_id, player2_id, sets, winner_id, note, location_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'),
+  insertMatch:        db.prepare('INSERT INTO matches (id, date, player1_id, player2_id, sets, winner_id, note, location_id, creator_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'),
+  updateMatch:        db.prepare('UPDATE matches SET sets = ?, winner_id = ?, note = ?, location_id = ? WHERE id = ?'),
   deleteMatch:        db.prepare('DELETE FROM matches WHERE id = ?'),
+  // Comments
+  getCommentsByMatch: db.prepare('SELECT * FROM comments WHERE match_id = ? ORDER BY created_at ASC'),
+  getComment:         db.prepare('SELECT * FROM comments WHERE id = ?'),
+  insertComment:      db.prepare('INSERT INTO comments (id, match_id, user_id, username, text, created_at) VALUES (?, ?, ?, ?, ?, ?)'),
+  deleteComment:      db.prepare('DELETE FROM comments WHERE id = ?'),
+  deleteCommentsByMatch: db.prepare('DELETE FROM comments WHERE match_id = ?'),
   // Users
   getUsers:           db.prepare('SELECT id, username, role, created_at FROM users ORDER BY created_at'),
   getUser:            db.prepare('SELECT * FROM users WHERE id = ?'),
@@ -163,10 +185,10 @@ app.get('/matches/:id', (req, res) => {
 });
 
 app.post('/matches', (req, res) => {
-  const { date, player1_id, player2_id, sets, winner_id, note, location_id } = req.body;
+  const { date, player1_id, player2_id, sets, winner_id, note, location_id, creator_id } = req.body;
   const id = generateId('m');
   try {
-    stmts.insertMatch.run(id, date, player1_id, player2_id, sets, winner_id, note || '', location_id || null);
+    stmts.insertMatch.run(id, date, player1_id, player2_id, sets, winner_id, note || '', location_id || null, creator_id || null);
     res.json(stmts.getMatch.get(id));
   } catch (e) {
     console.error('Insert match error:', e.message);
@@ -174,8 +196,55 @@ app.post('/matches', (req, res) => {
   }
 });
 
+app.put('/matches/:id', (req, res) => {
+  const { id } = req.params;
+  const row = stmts.getMatch.get(id);
+  if (!row) return res.status(404).json({ error: 'Match not found' });
+  const { sets, winner_id, note, location_id } = req.body;
+  try {
+    stmts.updateMatch.run(
+      sets ?? row.sets,
+      winner_id !== undefined ? winner_id : row.winner_id,
+      note !== undefined ? note : row.note,
+      location_id !== undefined ? location_id : row.location_id,
+      id
+    );
+    res.json(stmts.getMatch.get(id));
+  } catch (e) {
+    console.error('Update match error:', e.message);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 app.delete('/matches/:id', (req, res) => {
+  stmts.deleteCommentsByMatch.run(req.params.id);
   stmts.deleteMatch.run(req.params.id);
+  res.json({ ok: true });
+});
+
+// ─── COMMENTS ───────────────────────────────────────────────────────────────
+app.get('/matches/:id/comments', (req, res) => {
+  res.json(stmts.getCommentsByMatch.all(req.params.id));
+});
+
+app.post('/matches/:id/comments', (req, res) => {
+  const match = stmts.getMatch.get(req.params.id);
+  if (!match) return res.status(404).json({ error: 'Match not found' });
+  const { user_id, username, text } = req.body;
+  const id = generateId('c');
+  try {
+    stmts.insertComment.run(id, req.params.id, user_id, username, text, Date.now());
+    res.json(stmts.getComment.get(id));
+  } catch (e) {
+    console.error('Insert comment error:', e.message);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.delete('/comments/:id', (req, res) => {
+  const comment = stmts.getComment.get(req.params.id);
+  if (!comment) return res.status(404).json({ error: 'Comment not found' });
+  stmts.deleteComment.run(req.params.id);
   res.json({ ok: true });
 });
 

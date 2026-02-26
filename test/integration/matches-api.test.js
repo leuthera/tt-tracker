@@ -247,4 +247,110 @@ describe('matches API', () => {
     });
     assert.equal(res.status, 200);
   });
+
+  it('created match includes creatorId', async () => {
+    const res = await apiJson('/api/matches', {
+      method: 'POST',
+      body: JSON.stringify({
+        player1Id: p1.id, player2Id: p2.id,
+        sets: [{ p1: 11, p2: 5 }],
+      }),
+    });
+    const body = await res.json();
+    assert.ok(body.creatorId, 'creatorId should be set');
+  });
+
+  // ── Edit match ─────────────────────────────────────────────────────────────
+  it('PUT /api/matches/:id — admin can edit any match', async () => {
+    // Create a match as user, then edit as admin
+    const createRes = await fetch(`${server.url}/api/matches`, {
+      method: 'POST',
+      headers: { Cookie: userCookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        player1Id: p1.id, player2Id: p2.id,
+        sets: [{ p1: 11, p2: 5 }],
+      }),
+    });
+    const match = await createRes.json();
+
+    const res = await apiJson(`/api/matches/${match.id}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        sets: [{ p1: 5, p2: 11 }, { p1: 5, p2: 11 }],
+        note: 'Edited by admin',
+      }),
+    });
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.winnerId, p2.id); // winner recalculated
+    assert.equal(body.note, 'Edited by admin');
+    assert.deepEqual(body.sets, [{ p1: 5, p2: 11 }, { p1: 5, p2: 11 }]);
+  });
+
+  it('PUT /api/matches/:id — creator can edit own match', async () => {
+    // Create a match as user
+    const createRes = await fetch(`${server.url}/api/matches`, {
+      method: 'POST',
+      headers: { Cookie: userCookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        player1Id: p1.id, player2Id: p2.id,
+        sets: [{ p1: 11, p2: 5 }],
+      }),
+    });
+    const match = await createRes.json();
+
+    const res = await fetch(`${server.url}/api/matches/${match.id}`, {
+      method: 'PUT',
+      headers: { Cookie: userCookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ note: 'User edit' }),
+    });
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.note, 'User edit');
+  });
+
+  it('PUT /api/matches/:id — non-creator non-admin gets 403', async () => {
+    // Create a match as admin
+    const createRes = await apiJson('/api/matches', {
+      method: 'POST',
+      body: JSON.stringify({
+        player1Id: p1.id, player2Id: p2.id,
+        sets: [{ p1: 11, p2: 5 }],
+      }),
+    });
+    const match = await createRes.json();
+
+    // Try to edit as user (not the creator)
+    const res = await fetch(`${server.url}/api/matches/${match.id}`, {
+      method: 'PUT',
+      headers: { Cookie: userCookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ note: 'Unauthorized edit' }),
+    });
+    assert.equal(res.status, 403);
+  });
+
+  it('PUT /api/matches/:id — returns 404 for non-existent match', async () => {
+    const res = await apiJson('/api/matches/m_nonexistent', {
+      method: 'PUT',
+      body: JSON.stringify({ note: 'nope' }),
+    });
+    assert.equal(res.status, 404);
+  });
+
+  it('PUT /api/matches/:id — rejects invalid sets', async () => {
+    const createRes = await apiJson('/api/matches', {
+      method: 'POST',
+      body: JSON.stringify({
+        player1Id: p1.id, player2Id: p2.id,
+        sets: [{ p1: 11, p2: 5 }],
+      }),
+    });
+    const match = await createRes.json();
+
+    const res = await apiJson(`/api/matches/${match.id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ sets: [{ p1: 11, p2: 11 }] }),
+    });
+    assert.equal(res.status, 400);
+  });
 });

@@ -35,11 +35,13 @@ describe('players API', () => {
     });
   }
 
-  it('GET /api/players returns empty array initially', async () => {
+  it('GET /api/players returns auto-created players', async () => {
     const res = await api('/api/players');
     assert.equal(res.status, 200);
     const body = await res.json();
-    assert.deepEqual(body, []);
+    const names = body.map(p => p.name);
+    assert.ok(names.includes('admin'), 'bootstrap admin should auto-create a player');
+    assert.ok(names.includes('player_tester'), 'creating a user should auto-create a player');
   });
 
   it('POST /api/players creates a player', async () => {

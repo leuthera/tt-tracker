@@ -281,6 +281,14 @@ describe('auth', () => {
       createdUserId = body.id;
     });
 
+    it('creating a user auto-creates a matching player', async () => {
+      const res = await fetch(`${server.url}/api/players`, {
+        headers: { Cookie: sharedCookie },
+      });
+      const players = await res.json();
+      assert.ok(players.some(p => p.name === 'newuser'), 'player "newuser" should be auto-created');
+    });
+
     it('admin can reset user password', async () => {
       const res = await fetch(`${server.url}/api/users/${createdUserId}/password`, {
         method: 'PUT',

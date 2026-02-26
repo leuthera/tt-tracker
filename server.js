@@ -45,7 +45,7 @@ const net = require('net');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
-const { hashPassword, verifyPassword, dbToPlayer, dbToMatch, dbToLocation, dbToUser, determineWinner } = require('./lib/helpers');
+const { hashPassword, verifyPassword, dbToPlayer, dbToMatch, dbToComment, dbToLocation, dbToUser, determineWinner } = require('./lib/helpers');
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const ADMIN_USER = process.env.ADMIN_USER || 'admin';
@@ -447,6 +447,68 @@ app.post('/api/matches', requireAuth, async (req, res) => {
         winner_id: winnerId,
         note: trimmedNote,
         location_id: locationId || null,
+        creator_id: req.session.userId,
+      }),
+    });
+    res.json(dbToMatch(match));
+  } catch (e) {
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+app.put('/api/matches/:id', requireAuth, async (req, res) => {
+  // Fetch existing match
+  let existing;
+  try {
+    existing = await dbFetch(`/matches/${req.params.id}`);
+  } catch (e) {
+    if (e.status === 404) return res.status(404).json({ error: 'Match not found' });
+    return res.status(500).json({ error: 'Database error' });
+  }
+
+  // Auth: creator or admin
+  const isCreator = existing.creator_id && existing.creator_id === req.session.userId;
+  const isAdmin = req.session.role === 'admin';
+  if (!isCreator && !isAdmin) return res.status(403).json({ error: 'Not authorized to edit this match' });
+
+  const { sets, note, locationId } = req.body;
+
+  // Validate sets if provided
+  if (sets !== undefined) {
+    if (!Array.isArray(sets) || sets.length === 0) return res.status(400).json({ error: 'At least one set required' });
+    if (sets.length > 9) return res.status(400).json({ error: 'Too many sets (max 9)' });
+    for (let i = 0; i < sets.length; i++) {
+      const s = sets[i];
+      if (!s || typeof s !== 'object') return res.status(400).json({ error: `Set ${i+1}: invalid format` });
+      const p1Score = Number(s.p1);
+      const p2Score = Number(s.p2);
+      if (!Number.isFinite(p1Score) || !Number.isFinite(p2Score) || p1Score < 0 || p2Score < 0 || p1Score > 99 || p2Score > 99) {
+        return res.status(400).json({ error: `Set ${i+1}: scores must be numbers between 0 and 99` });
+      }
+      if (p1Score === p2Score) {
+        return res.status(400).json({ error: `Set ${i+1}: scores must be different` });
+      }
+    }
+  }
+
+  if (note !== undefined) {
+    const trimmedNote = (note || '').trim();
+    if (trimmedNote.length > 500) return res.status(400).json({ error: 'Note too long (max 500 chars)' });
+  }
+
+  // Recalculate winner if sets changed
+  const finalSets = sets || JSON.parse(existing.sets);
+  const winnerId = determineWinner(finalSets, existing.player1_id, existing.player2_id);
+
+  try {
+    const match = await dbFetch(`/matches/${req.params.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sets: sets ? JSON.stringify(sets) : existing.sets,
+        winner_id: winnerId,
+        note: note !== undefined ? (note || '').trim() : existing.note,
+        location_id: locationId !== undefined ? (locationId || null) : existing.location_id,
       }),
     });
     res.json(dbToMatch(match));
@@ -460,6 +522,48 @@ app.delete('/api/matches/:id', requireAuth, requireAdmin, async (req, res) => {
     const result = await dbFetch(`/matches/${req.params.id}`, { method: 'DELETE' });
     res.json(result);
   } catch (e) {
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ─── API: COMMENTS ──────────────────────────────────────────────────────────
+app.get('/api/matches/:id/comments', requireAuth, async (req, res) => {
+  try {
+    const rows = await dbFetch(`/matches/${req.params.id}/comments`);
+    res.json(rows.map(dbToComment));
+  } catch (e) {
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+app.post('/api/matches/:id/comments', requireAuth, async (req, res) => {
+  const text = (req.body.text || '').trim();
+  if (!text) return res.status(400).json({ error: 'Comment text is required' });
+  if (text.length > 500) return res.status(400).json({ error: 'Comment too long (max 500 chars)' });
+
+  try {
+    const comment = await dbFetch(`/matches/${req.params.id}/comments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        user_id: req.session.userId,
+        username: req.session.username,
+        text,
+      }),
+    });
+    res.json(dbToComment(comment));
+  } catch (e) {
+    if (e.status === 404) return res.status(404).json({ error: 'Match not found' });
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+app.delete('/api/comments/:id', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const result = await dbFetch(`/comments/${req.params.id}`, { method: 'DELETE' });
+    res.json(result);
+  } catch (e) {
+    if (e.status === 404) return res.status(404).json({ error: 'Comment not found' });
     res.status(500).json({ error: 'Database error' });
   }
 });
@@ -617,11 +721,20 @@ app.post('/api/users', requireAuth, requireAdmin, async (req, res) => {
 
   try {
     const hashed = hashPassword(password);
+    const trimmed = username.trim();
     const user = await dbFetch('/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: username.trim(), password: hashed, role: userRole }),
+      body: JSON.stringify({ username: trimmed, password: hashed, role: userRole }),
     });
+    // Auto-create a matching player (ignore if one already exists)
+    try {
+      await dbFetch('/players', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: trimmed }),
+      });
+    } catch (_) { /* player may already exist — that's fine */ }
     res.json(dbToUser(user));
   } catch (e) {
     if (e.status === 409) return res.status(400).json({ error: 'A user with this username already exists' });
@@ -677,6 +790,14 @@ async function bootstrapAdmin(retries = 10, delayMs = 2000) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username: ADMIN_USER, password: hashed, role: 'admin' }),
         });
+        // Auto-create a matching player for the admin
+        try {
+          await dbFetch('/players', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: ADMIN_USER }),
+          });
+        } catch (_) { /* player may already exist */ }
         console.log(`Admin user "${ADMIN_USER}" created`);
       }
       return;

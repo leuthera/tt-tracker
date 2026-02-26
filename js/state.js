@@ -94,9 +94,35 @@ async function addMatch(data) {
   return match;
 }
 
+async function updateMatch(id, data) {
+  const match = await apiFetch(`/api/matches/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data)
+  });
+  await refreshMatches();
+  return match;
+}
+
 async function deleteMatch(id) {
   await apiFetch(`/api/matches/${id}`, { method: 'DELETE' });
   await refreshMatches();
+}
+
+// ─── COMMENT CRUD ──────────────────────────────────────────────────────────
+
+async function getComments(matchId) {
+  return apiFetch(`/api/matches/${matchId}/comments`);
+}
+
+async function addComment(matchId, text) {
+  return apiFetch(`/api/matches/${matchId}/comments`, {
+    method: 'POST',
+    body: JSON.stringify({ text })
+  });
+}
+
+async function deleteComment(id) {
+  return apiFetch(`/api/comments/${id}`, { method: 'DELETE' });
 }
 
 // ─── LOCATION CRUD ─────────────────────────────────────────────────────────
@@ -174,7 +200,8 @@ export {
   loadLocations, getLocationById,
   refreshAll, refreshPlayers, refreshMatches, refreshLocations,
   addPlayer, deletePlayer,
-  addMatch, deleteMatch,
+  addMatch, updateMatch, deleteMatch,
+  getComments, addComment, deleteComment,
   addLocation, updateLocation, deleteLocation,
   uploadLocationImage, deleteLocationImage,
   logClientError

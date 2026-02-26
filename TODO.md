@@ -35,6 +35,8 @@
 - [x] Add/remove set rows dynamically
 - [x] Live result preview while entering scores
 - [x] Save button disables during submission (prevents double-submit)
+- [x] Edit match — the user who created a match can edit it, and admins can edit any match
+- [x] Comment section on matches — users can add comments to matches; admins can delete any comment
 
 ## Statistics & Analytics
 
@@ -171,6 +173,7 @@
 - [x] Admin-only user management (create, reset password, delete)
 - [x] Role-based permissions (admin/user) — only admins can delete players, matches, and manage users
 - [x] Users can change their own password
+- [x] Auto-create a player when a new user is created
 
 ## Testing
 
