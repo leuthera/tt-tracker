@@ -111,7 +111,7 @@ html, body {
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-  padding-bottom: calc(var(--nav-height) + 12px);
+  padding-bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px) + 16px);
 }
 
 .tab-panel {
@@ -973,7 +973,7 @@ html, body {
 /* === TOAST === */
 #toast-container {
   position: fixed;
-  bottom: calc(var(--nav-height) + 12px);
+  bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px) + 12px);
   left: 50%;
   transform: translateX(-50%);
   z-index: 300;
