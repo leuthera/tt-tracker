@@ -8,8 +8,9 @@
 4. **Verify, don't assume.** After implementing something, confirm it works. Don't mark a task done until tests pass.
 5. **Keep changes minimal.** Only change what's needed. Don't refactor adjacent code, add comments to untouched code, or "improve" things that weren't asked for.
 6. **Don't commit unless asked.** Never auto-commit. Wait for explicit instructions.
-7. **Update tests for new features.** Every new endpoint, helper, or behavior change needs corresponding tests. Check existing test files for patterns.
-8. **Update docs when relevant.** If a feature changes user-facing behavior, update README.md. If a new env var is added, update .env.example. Keep TODO.md in sync.
+7. **Check CI after pushing.** After every `git push`, run `gh run watch` to monitor the pipeline. If it fails, investigate with `gh run view <id> --log-failed`, diagnose the error, and suggest a fix.
+8. **Update tests for new features.** Every new endpoint, helper, or behavior change needs corresponding tests. Check existing test files for patterns.
+9. **Update docs when relevant.** If a feature changes user-facing behavior, update README.md. If a new env var is added, update .env.example. Keep TODO.md in sync.
 
 ## Commands
 

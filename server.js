@@ -500,25 +500,33 @@ app.delete('/api/users/:id', requireAuth, requireAdmin, async (req, res) => {
 });
 
 // ─── ADMIN BOOTSTRAP ──────────────────────────────────────────────────────────
-async function bootstrapAdmin() {
-  try {
-    const { count } = await dbFetch('/users/count');
-    if (count === 0) {
-      if (!ADMIN_PASS) {
-        console.error('ERROR: ADMIN_PASS environment variable is required for initial admin setup');
+async function bootstrapAdmin(retries = 10, delayMs = 2000) {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const { count } = await dbFetch('/users/count');
+      if (count === 0) {
+        if (!ADMIN_PASS) {
+          console.error('ERROR: ADMIN_PASS environment variable is required for initial admin setup');
+          process.exit(1);
+        }
+        const hashed = hashPassword(ADMIN_PASS);
+        await dbFetch('/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: ADMIN_USER, password: hashed, role: 'admin' }),
+        });
+        console.log(`Admin user "${ADMIN_USER}" created`);
+      }
+      return;
+    } catch (e) {
+      if (attempt < retries) {
+        console.log(`Waiting for db-service... (attempt ${attempt}/${retries})`);
+        await new Promise(r => setTimeout(r, delayMs));
+      } else {
+        console.error('Failed to bootstrap admin user:', e.message);
         process.exit(1);
       }
-      const hashed = hashPassword(ADMIN_PASS);
-      await dbFetch('/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: ADMIN_USER, password: hashed, role: 'admin' }),
-      });
-      console.log(`Admin user "${ADMIN_USER}" created`);
     }
-  } catch (e) {
-    console.error('Failed to bootstrap admin user:', e.message);
-    process.exit(1);
   }
 }
 
