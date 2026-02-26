@@ -264,6 +264,7 @@ function attachListeners() {
 
   // Pull to refresh
   initPullToRefresh(() => {
+    sessionStorage.setItem('tt-tab', state.currentTab);
     location.reload();
   });
 }
@@ -379,7 +380,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   } catch(e) {
     showToast(t('toast.dataError'), 'error');
   }
-  renderHome();
+  const restoreTab = sessionStorage.getItem('tt-tab');
+  sessionStorage.removeItem('tt-tab');
+  if (restoreTab && restoreTab !== 'home') {
+    navigateTo(restoreTab, renderFns);
+  } else {
+    renderHome();
+  }
   updateStaticLabels();
   hideLoading();
 
