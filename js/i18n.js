@@ -66,6 +66,11 @@ const translations = {
     'stats.leaderboard': 'Leaderboard', 'stats.noPlayersTitle': 'No players yet',
     'stats.noPlayersText': 'Add players to see the leaderboard',
     'stats.playerStats': "{name}'s Stats", 'stats.back': '\u2190 All',
+    'stats.rangeAll': 'All', 'stats.rangeYear': 'Year', 'stats.range3m': '3M', 'stats.range30d': '30D',
+    'stats.eloChart': 'ELO Progression', 'stats.eloChartLabel': 'ELO', 'stats.winRateChart': 'Win Rate Over Time',
+    'stats.compare': 'Compare', 'stats.compareTitle': 'Compare Players',
+    'stats.compareTwoPlayers': 'Select two players to compare',
+    'stats.wins': 'Wins', 'stats.totalMatches': 'Matches',
     // Confirm
     'confirm.title': 'Confirm', 'confirm.delete': 'Delete', 'confirm.cancel': 'Cancel',
     // Toast
@@ -218,6 +223,11 @@ const translations = {
     'stats.leaderboard': 'Rangliste', 'stats.noPlayersTitle': 'Noch keine Spieler',
     'stats.noPlayersText': 'F\u00FCge Spieler hinzu, um die Rangliste zu sehen',
     'stats.playerStats': 'Statistik von {name}', 'stats.back': '\u2190 Alle',
+    'stats.rangeAll': 'Alle', 'stats.rangeYear': 'Jahr', 'stats.range3m': '3M', 'stats.range30d': '30T',
+    'stats.eloChart': 'ELO-Verlauf', 'stats.eloChartLabel': 'ELO', 'stats.winRateChart': 'Siegquote \u00FCber Zeit',
+    'stats.compare': 'Vergleichen', 'stats.compareTitle': 'Spieler vergleichen',
+    'stats.compareTwoPlayers': 'W\u00E4hle zwei Spieler zum Vergleichen',
+    'stats.wins': 'Siege', 'stats.totalMatches': 'Spiele',
     'confirm.title': 'Best\u00E4tigen', 'confirm.delete': 'L\u00F6schen', 'confirm.cancel': 'Abbrechen',
     'toast.dataError': 'Daten konnten nicht geladen werden', 'toast.matchDeleted': 'Spiel gel\u00F6scht',
     'toast.matchDeleteError': 'Spiel konnte nicht gel\u00F6scht werden',

@@ -3,8 +3,9 @@
 import { t } from './i18n.js';
 import { esc, mkAvatar } from './helpers.js';
 import { state, loadPlayers, loadMatches, getPlayerById, loadLocations, addPlayer, deletePlayer, addMatch, updateMatch, getComments, addComment, deleteComment, getEloHistory, apiFetch } from './state.js';
-import { countSetWins, computeStats, getLeaderboard, computeH2H } from './stats.js';
+import { countSetWins, computeStats, getLeaderboard, computeH2H, filterMatchesByDateRange } from './stats.js';
 import { showModal, hideModal, showConfirmModal, showToast, createMatchCard, populateFilter, navigateTo } from './ui.js';
+import { renderEloChart, renderWinRateChart } from './charts.js';
 
 // ─── Render function map (set by app.js via setRenderFns) ───────────────────
 
@@ -446,21 +447,12 @@ function showPlayerDetailModal(playerId) {
     footerHTML: state.me.role === 'admin' ? `<button class="btn btn--danger" id="modal-delete-player">${esc(t('playerDetail.delete'))}</button>` : ''
   });
 
-  // Load ELO history asynchronously
+  // Load ELO history as chart
   getEloHistory(playerId).then(history => {
     const container = document.getElementById('elo-history-container');
     if (!container || history.length === 0) return;
-    let html = `<div class="section__title" style="margin-bottom:8px">${esc(t('playerDetail.eloHistory'))}</div><div class="elo-history">`;
-    for (const entry of history) {
-      const delta = entry.ratingAfter - entry.ratingBefore;
-      const cls = delta > 0 ? 'elo-history-item--up' : delta < 0 ? 'elo-history-item--down' : '';
-      html += `<div class="elo-history-item ${cls}">
-        <span class="elo-history-item__rating">${entry.ratingAfter}</span>
-        <span class="elo-history-item__delta">${delta > 0 ? '+' : ''}${delta}</span>
-      </div>`;
-    }
-    html += `</div>`;
-    container.innerHTML = html;
+    container.innerHTML = `<div class="chart-container"><div class="chart-container__title">${esc(t('playerDetail.eloHistory'))}</div><div id="modal-elo-chart"></div></div>`;
+    renderEloChart(document.getElementById('modal-elo-chart'), history, 'all');
   }).catch(() => {});
 
   if (state.me.role !== 'admin') return;
@@ -558,6 +550,13 @@ function renderStats() {
   const sel = document.getElementById('stats-filter-select');
   populateFilter(sel, state.statsFilter, t('stats.leaderboard'));
 
+  // Update date filter buttons
+  const rangeKeys = { all: 'stats.rangeAll', year: 'stats.rangeYear', '3m': 'stats.range3m', '30d': 'stats.range30d' };
+  document.querySelectorAll('#stats-date-filter .stats-date-btn').forEach(btn => {
+    btn.textContent = t(rangeKeys[btn.dataset.range] || btn.dataset.range);
+    btn.classList.toggle('stats-date-btn--active', btn.dataset.range === state.statsDateRange);
+  });
+
   if (state.statsFilter) {
     document.getElementById('leaderboard-container').innerHTML = '';
     renderPlayerStats(state.statsFilter);
@@ -569,7 +568,8 @@ function renderStats() {
 
 function renderLeaderboard() {
   const el = document.getElementById('leaderboard-container');
-  const lb = getLeaderboard(loadPlayers(), loadMatches());
+  const filtered = filterMatchesByDateRange(loadMatches(), state.statsDateRange);
+  const lb = getLeaderboard(loadPlayers(), filtered);
 
   if (lb.length === 0) {
     el.innerHTML = `
@@ -583,7 +583,12 @@ function renderLeaderboard() {
   }
 
   const rankClass = ['leaderboard__rank--gold','leaderboard__rank--silver','leaderboard__rank--bronze'];
-  let html = `<div class="leaderboard">`;
+  let html = `
+    <div class="section__header">
+      <span class="section__title">${esc(t('stats.leaderboard'))}</span>
+      <button class="section__action" id="stats-compare-btn">${esc(t('stats.compare'))}</button>
+    </div>
+    <div class="leaderboard">`;
   lb.forEach(({ player, stats }, i) => {
     html += `
       <div class="leaderboard__row" data-pid="${esc(player.id)}">
@@ -597,6 +602,8 @@ function renderLeaderboard() {
   });
   html += `</div>`;
   el.innerHTML = html;
+
+  document.getElementById('stats-compare-btn')?.addEventListener('click', showCompareModal);
 
   el.querySelectorAll('.leaderboard__row').forEach(row => {
     row.addEventListener('click', () => {
@@ -613,7 +620,7 @@ function renderPlayerStats(playerId) {
   const player = getPlayerById(playerId);
   if (!player) { el.innerHTML = ''; return; }
 
-  const matches = loadMatches();
+  const matches = filterMatchesByDateRange(loadMatches(), state.statsDateRange);
   const stats = computeStats(playerId, matches);
 
   const formBadges = stats.recentForm.map(f =>
@@ -652,6 +659,14 @@ function renderPlayerStats(playerId) {
       <div class="stat-card"><div class="stat-card__value">${stats.setsWon}</div><div class="stat-card__label">${esc(t('playerDetail.setsWon'))}</div></div>
       <div class="stat-card"><div class="stat-card__value">${stats.pointsWon}</div><div class="stat-card__label">${esc(t('playerDetail.pointsWon'))}</div></div>
     </div>
+    <div class="chart-container">
+      <div class="chart-container__title">${esc(t('stats.eloChart'))}</div>
+      <div id="stats-elo-chart"></div>
+    </div>
+    <div class="chart-container">
+      <div class="chart-container__title">${esc(t('stats.winRateChart'))}</div>
+      <div id="stats-winrate-chart"></div>
+    </div>
     ${formBadges ? `
       <div class="section__title" style="margin-bottom:8px">${esc(t('playerDetail.recentForm'))}</div>
       <div class="form-badges" style="margin-bottom:16px">${formBadges}</div>
@@ -667,6 +682,13 @@ function renderPlayerStats(playerId) {
     document.getElementById('stats-filter-select').value = '';
     renderStats();
   });
+
+  // Render charts asynchronously
+  getEloHistory(playerId).then(history => {
+    const eloContainer = document.getElementById('stats-elo-chart');
+    if (eloContainer) renderEloChart(eloContainer, history, state.statsDateRange);
+  }).catch(() => {});
+  renderWinRateChart(document.getElementById('stats-winrate-chart'), playerId, matches);
 }
 
 // ─── RENDER: EDIT MATCH MODAL ──────────────────────────────────────────────
@@ -920,6 +942,92 @@ async function submitComment(matchId) {
   }
 }
 
+// ─── RENDER: COMPARE MODAL ──────────────────────────────────────────────────
+
+function showCompareModal() {
+  const players = loadPlayers();
+  if (players.length < 2) return;
+
+  const opts = players.map(p => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('');
+  const placeholder = `<option value="">${esc(t('stats.compareTwoPlayers'))}</option>`;
+
+  showModal({
+    title: t('stats.compareTitle'),
+    bodyHTML: `
+      <div class="compare-selects">
+        <select class="form-select" id="compare-p1">${placeholder}${opts}</select>
+        <span class="vs-divider">VS</span>
+        <select class="form-select" id="compare-p2">${placeholder}${opts}</select>
+      </div>
+      <div id="compare-result"></div>
+    `,
+    footerHTML: ''
+  });
+
+  const update = () => {
+    const p1Id = document.getElementById('compare-p1').value;
+    const p2Id = document.getElementById('compare-p2').value;
+    const container = document.getElementById('compare-result');
+    if (!p1Id || !p2Id || p1Id === p2Id) { container.innerHTML = ''; return; }
+    renderComparison(container, p1Id, p2Id);
+  };
+
+  document.getElementById('compare-p1').addEventListener('change', update);
+  document.getElementById('compare-p2').addEventListener('change', update);
+}
+
+function renderComparison(container, p1Id, p2Id) {
+  const matches = filterMatchesByDateRange(loadMatches(), state.statsDateRange);
+  const p1 = getPlayerById(p1Id);
+  const p2 = getPlayerById(p2Id);
+  if (!p1 || !p2) return;
+
+  const s1 = computeStats(p1Id, matches);
+  const s2 = computeStats(p2Id, matches);
+  const h2h = computeH2H(p1Id, p2Id, matches);
+
+  const statRows = [
+    { label: t('playerDetail.elo'), v1: p1.eloRating || 1200, v2: p2.eloRating || 1200 },
+    { label: t('playerDetail.winRate'), v1: s1.winRate, v2: s2.winRate, suffix: '%' },
+    { label: t('stats.wins'), v1: s1.wins, v2: s2.wins },
+    { label: t('stats.totalMatches'), v1: s1.totalMatches, v2: s2.totalMatches },
+    { label: t('playerDetail.setsWon'), v1: s1.setsWon, v2: s2.setsWon },
+    { label: t('playerDetail.pointsWon'), v1: s1.pointsWon, v2: s2.pointsWon },
+  ];
+
+  let rowsHTML = '';
+  for (const row of statRows) {
+    const total = (row.v1 + row.v2) || 1;
+    const pct1 = Math.round((row.v1 / total) * 100);
+    const pct2 = 100 - pct1;
+    const lead1 = row.v1 > row.v2 ? ' compare-bar--lead' : '';
+    const lead2 = row.v2 > row.v1 ? ' compare-bar--lead' : '';
+    const sfx = row.suffix || '';
+    rowsHTML += `
+      <div class="compare-stat">
+        <div class="compare-stat__values">
+          <span class="compare-stat__val${lead1}">${row.v1}${sfx}</span>
+          <span class="compare-stat__label">${esc(row.label)}</span>
+          <span class="compare-stat__val${lead2}">${row.v2}${sfx}</span>
+        </div>
+        <div class="compare-bars">
+          <div class="compare-bar compare-bar--left${lead1}" style="width:${pct1}%"></div>
+          <div class="compare-bar compare-bar--right${lead2}" style="width:${pct2}%"></div>
+        </div>
+      </div>
+    `;
+  }
+
+  container.innerHTML = `
+    <div class="compare-h2h">
+      <span class="compare-h2h__name">${esc(p1.name)}</span>
+      <span class="compare-h2h__score">${h2h.p1Wins} \u2013 ${h2h.p2Wins}</span>
+      <span class="compare-h2h__name">${esc(p2.name)}</span>
+    </div>
+    ${rowsHTML}
+  `;
+}
+
 // Cache for helper functions needed in detail modal
 const _helperCache = {};
 import('./helpers.js').then(m => {
@@ -932,5 +1040,6 @@ export {
   renderHome, renderNewMatchTab, renderPlayers, renderHistory, renderStats,
   showAddPlayerModal, showPlayerDetailModal,
   showEditMatchModal, showMatchDetailModal,
+  showCompareModal,
   populatePlayerSelects, renderSetRows, updateResultPreview, submitMatch
 };

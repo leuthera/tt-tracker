@@ -58,6 +58,9 @@ flowchart TD
 - **Match tracking** — log singles or doubles (2v2) matches with per-set scores, optional notes and location
 - **ELO ratings** — automatic ELO rating system (K=32, start 1200) with full recalculation on match create/edit/delete
 - **Player stats** — win/loss record, win rate, sets, points, recent form, streaks, head-to-head records
+- **Charts** — SVG ELO progression and win rate over time charts per player
+- **Season filtering** — filter stats by date range (all time, year, 3 months, 30 days)
+- **Player comparison** — side-by-side stat comparison with H2H record and proportional bars
 - **Leaderboard** — ranked by ELO, then win rate, then total wins with medal badges
 - **Comments** — comment section on each match
 - **Locations** — venue management with GPS auto-detect and image upload

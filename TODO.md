@@ -152,9 +152,9 @@
 
 ## Stats & Visualization
 
-- [ ] Charts — rating/win-rate progression over time per player
-- [ ] Season filtering — view stats for a specific date range
-- [ ] Player comparison — side-by-side stat view for two players
+- [x] Charts — rating/win-rate progression over time per player
+- [x] Season filtering — view stats for a specific date range
+- [x] Player comparison — side-by-side stat view for two players
 
 ## Social & Engagement
 

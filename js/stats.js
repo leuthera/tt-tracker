@@ -92,4 +92,18 @@ function computeH2H(p1Id, p2Id, matches) {
   return { p1Wins, p2Wins, total: h2hMatches.length };
 }
 
-export { countSetWins, computeStats, getLeaderboard, computeH2H };
+function filterMatchesByDateRange(matches, preset) {
+  if (!matches || !preset || preset === 'all') return matches || [];
+  const now = Date.now();
+  let cutoff;
+  if (preset === '30d') cutoff = now - 30 * 24 * 60 * 60 * 1000;
+  else if (preset === '3m') cutoff = now - 90 * 24 * 60 * 60 * 1000;
+  else if (preset === 'year') cutoff = now - 365 * 24 * 60 * 60 * 1000;
+  else return matches;
+  return matches.filter(m => {
+    const ts = typeof m.date === 'string' ? new Date(m.date).getTime() : m.date;
+    return ts >= cutoff;
+  });
+}
+
+export { countSetWins, computeStats, getLeaderboard, computeH2H, filterMatchesByDateRange };

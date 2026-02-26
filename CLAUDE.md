@@ -17,7 +17,7 @@
 
 ```bash
 nvm use 22                   # MUST run before tests
-npm test                     # All tests (~200 tests, node:test)
+npm test                     # All tests (~215 tests, node:test)
 npm run test:unit            # Unit tests only (fast)
 npm run test:integration     # Integration tests only (spawns real processes)
 npm run lint                 # ESLint — no-undef + no-unused-vars only
@@ -27,12 +27,13 @@ npm run lint                 # ESLint — no-undef + no-unused-vars only
 
 - **server.js** — Express app (port 8000): auth, sessions, API proxy to db-service, serves static files + `js/`
 - **db-service.js** — SQLite REST microservice (port 3000, internal only): CRUD via better-sqlite3
-- **index.html** — Frontend HTML shell (~190 lines). CSS in `css/styles.css`, JS in `js/` modules.
+- **index.html** — Frontend HTML shell (~207 lines). CSS in `css/styles.css`, JS in `js/` modules.
 - **js/** — Frontend ES modules (browser-native, no build step):
   - `i18n.js` — translations (EN/DE), language helpers
   - `state.js` — app state, API fetch, CRUD operations (players, matches, locations)
   - `helpers.js` — esc, avatar, relativeTime, dateGroup, formatSets, haversineDistance
-  - `stats.js` — pure stats functions (computeStats, getLeaderboard, computeH2H)
+  - `stats.js` — pure stats functions (computeStats, getLeaderboard, computeH2H, filterMatchesByDateRange)
+  - `charts.js` — SVG chart rendering (ELO progression, win rate over time)
   - `ui.js` — modal, toast, loading, match card, swipe-to-delete, navigation
   - `export.js` — CSV/JSON export
   - `render.js` — all render* functions for each tab
@@ -40,7 +41,7 @@ npm run lint                 # ESLint — no-undef + no-unused-vars only
   - `locations.js` — locations tab rendering, add/edit/detail modals, image upload
   - `app.js` — entry point: event listeners, theme, offline/sync, init
 - **sw.js** — Service worker: caching, offline queue (IndexedDB), background sync
-- **lib/helpers.js** — Shared server utilities (password hashing, DB row transformers, match logic, ELO rating calculations, CSV escaping)
+- **lib/helpers.js** — Shared server utilities (password hashing, DB row transformers, match logic, ELO rating calculations, CSV escaping, date range filtering, win rate computation)
 - **test/helpers/setup.js** — Test utilities (spawn servers, login, create users)
 
 server.js never touches SQLite directly — it calls db-service.js over HTTP with Bearer token auth.

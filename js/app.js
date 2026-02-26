@@ -248,6 +248,14 @@ function attachListeners() {
     state.statsFilter = e.target.value;
     renderStats();
   });
+
+  // Stats date range filter
+  document.getElementById('stats-date-filter').addEventListener('click', e => {
+    const btn = e.target.closest('.stats-date-btn');
+    if (!btn) return;
+    state.statsDateRange = btn.dataset.range;
+    renderStats();
+  });
 }
 
 // ─── INIT ───────────────────────────────────────────────────────────────────

@@ -8,6 +8,7 @@ const state = {
   newMatch: { player1Id: '', player2Id: '', player3Id: '', player4Id: '', isDoubles: false, sets: [{p1: 11, p2: 0}], note: '', locationId: '' },
   historyFilter: '',
   statsFilter: '',
+  statsDateRange: 'all',
   me: { role: 'user', username: '' },
   isOnline: typeof navigator !== 'undefined' ? navigator.onLine : true,
   pendingSync: 0

@@ -8,6 +8,8 @@ const {
   dbToPlayer, dbToMatch, dbToComment, dbToUser, dbToEloHistory,
   eloExpected, eloChange, calculateMatchElo,
   csvEscape,
+  filterMatchesByDateRange,
+  computeWinRateOverTime,
 } = require('../../lib/helpers');
 
 describe('hashPassword / verifyPassword', () => {
@@ -298,5 +300,100 @@ describe('csvEscape', () => {
 
   it('handles value with comma and quotes together', () => {
     assert.equal(csvEscape('a,"b"'), '"a,""b"""');
+  });
+});
+
+describe('filterMatchesByDateRange', () => {
+  const now = Date.now();
+  const matches = [
+    { date: now - 10 * 24 * 60 * 60 * 1000 },  // 10 days ago
+    { date: now - 60 * 24 * 60 * 60 * 1000 },  // 60 days ago
+    { date: now - 120 * 24 * 60 * 60 * 1000 }, // 120 days ago
+    { date: now - 400 * 24 * 60 * 60 * 1000 }, // 400 days ago
+  ];
+
+  it('returns all matches for "all" preset', () => {
+    assert.equal(filterMatchesByDateRange(matches, 'all').length, 4);
+  });
+
+  it('filters to last 30 days', () => {
+    assert.equal(filterMatchesByDateRange(matches, '30d').length, 1);
+  });
+
+  it('filters to last 3 months', () => {
+    assert.equal(filterMatchesByDateRange(matches, '3m').length, 2);
+  });
+
+  it('filters to last year', () => {
+    assert.equal(filterMatchesByDateRange(matches, 'year').length, 3);
+  });
+
+  it('returns empty array for null matches', () => {
+    assert.deepEqual(filterMatchesByDateRange(null, 'all'), []);
+  });
+
+  it('returns empty array for undefined matches', () => {
+    assert.deepEqual(filterMatchesByDateRange(undefined, '30d'), []);
+  });
+
+  it('returns all matches for unknown preset', () => {
+    assert.equal(filterMatchesByDateRange(matches, 'unknown').length, 4);
+  });
+
+  it('returns all matches for falsy preset', () => {
+    assert.equal(filterMatchesByDateRange(matches, '').length, 4);
+  });
+
+  it('handles string date format', () => {
+    const strMatches = [{ date: new Date(now - 5 * 24 * 60 * 60 * 1000).toISOString() }];
+    assert.equal(filterMatchesByDateRange(strMatches, '30d').length, 1);
+  });
+});
+
+describe('computeWinRateOverTime', () => {
+  const now = Date.now();
+
+  it('returns empty array for no matches', () => {
+    assert.deepEqual(computeWinRateOverTime('p1', []), []);
+  });
+
+  it('returns empty array for null input', () => {
+    assert.deepEqual(computeWinRateOverTime('p1', null), []);
+  });
+
+  it('returns empty array for null playerId', () => {
+    assert.deepEqual(computeWinRateOverTime(null, [{ player1Id: 'p1' }]), []);
+  });
+
+  it('computes cumulative win rate', () => {
+    const matches = [
+      { date: now - 3000, player1Id: 'p1', player2Id: 'p2', winnerId: 'p1' },
+      { date: now - 2000, player1Id: 'p1', player2Id: 'p2', winnerId: 'p2' },
+      { date: now - 1000, player1Id: 'p1', player2Id: 'p2', winnerId: 'p1' },
+    ];
+    const result = computeWinRateOverTime('p1', matches);
+    assert.equal(result.length, 3);
+    assert.equal(result[0].winRate, 100); // 1/1
+    assert.equal(result[1].winRate, 50);  // 1/2
+    assert.equal(result[2].winRate, 67);  // 2/3
+  });
+
+  it('only includes matches involving the player', () => {
+    const matches = [
+      { date: now - 2000, player1Id: 'p1', player2Id: 'p2', winnerId: 'p1' },
+      { date: now - 1000, player1Id: 'p3', player2Id: 'p4', winnerId: 'p3' },
+    ];
+    const result = computeWinRateOverTime('p1', matches);
+    assert.equal(result.length, 1);
+    assert.equal(result[0].winRate, 100);
+  });
+
+  it('handles doubles matches', () => {
+    const matches = [
+      { date: now - 1000, player1Id: 'p1', player2Id: 'p2', player3Id: 'p3', player4Id: 'p4', winnerId: 'p1', isDoubles: true },
+    ];
+    const result = computeWinRateOverTime('p3', matches);
+    assert.equal(result.length, 1);
+    assert.equal(result[0].winRate, 100); // p3 is on p1's team, p1 won
   });
 });
