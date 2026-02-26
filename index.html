@@ -383,6 +383,22 @@
       white-space: nowrap;
     }
 
+    .match-card__delete {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      opacity: 0.45;
+      font-size: 16px;
+      cursor: pointer;
+      padding: 2px 4px;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+    .match-card__delete:hover {
+      opacity: 1;
+      color: var(--danger, #e53e3e);
+    }
+
     /* === PLAYER ROW === */
     .player-row {
       display: flex;

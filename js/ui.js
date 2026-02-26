@@ -87,7 +87,7 @@ function createMatchCard(match, { onDeleteDone } = {}) {
   `;
 
   if (state.me.role === 'admin') {
-    initSwipeToDelete(card, () => {
+    const onConfirmDelete = () => {
       showConfirmModal(t('confirm.title'), async () => {
         try {
           await deleteMatch(match.id);
@@ -97,7 +97,14 @@ function createMatchCard(match, { onDeleteDone } = {}) {
           showToast(t('toast.matchDeleteError'), 'error');
         }
       });
-    });
+    };
+    initSwipeToDelete(card, onConfirmDelete);
+    const delBtn = document.createElement('button');
+    delBtn.className = 'match-card__delete';
+    delBtn.setAttribute('aria-label', t('confirm.delete'));
+    delBtn.textContent = '\u00D7';
+    delBtn.addEventListener('click', (e) => { e.stopPropagation(); onConfirmDelete(); });
+    card.querySelector('.match-card__header').appendChild(delBtn);
   }
 
   return card;
