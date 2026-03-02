@@ -35,6 +35,7 @@ services:
 
   grafana:
     image: grafana/grafana:11.6.0
+    user: "0"
     ports:
       - "3001:3001"
     environment:
