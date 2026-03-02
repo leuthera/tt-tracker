@@ -182,7 +182,7 @@ function populateFilter(sel, currentVal, defaultLabel) {
 
 let _navCounter = 0;
 
-async function navigateTo(tabId, renderFns) {
+async function navigateTo(tabId, renderFns, { pushHistory = true } = {}) {
   const navId = ++_navCounter;
 
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
@@ -201,6 +201,10 @@ async function navigateTo(tabId, renderFns) {
 
   state.currentTab = tabId;
   window.scrollTo(0, 0);
+
+  if (pushHistory) {
+    history.pushState({ tab: tabId }, '', location.pathname);
+  }
 
   showLoading();
 

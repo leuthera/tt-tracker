@@ -206,6 +206,9 @@ function showLocationDetailModal(locationId) {
     : `<div class="text-muted text-sm">${esc(t('locationDetail.noCoords'))}</div>`;
 
   let footerBtns = '';
+  if (loc.lat != null && loc.lng != null) {
+    footerBtns += `<a class="btn btn--secondary" href="https://www.google.com/maps?q=${loc.lat},${loc.lng}" target="_blank" rel="noopener">${esc(t('locationDetail.openMaps'))}</a>`;
+  }
   if (state.me.role === 'admin') {
     footerBtns += `<button class="btn btn--secondary" id="modal-edit-location">${esc(t('locationDetail.edit'))}</button>`;
     if (loc.image) {

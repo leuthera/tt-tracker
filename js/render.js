@@ -925,7 +925,7 @@ function showMatchDetailModal(match) {
       <div class="section__title" style="margin-bottom:8px">${esc(t('comments.title'))}</div>
       <div id="comments-list" style="margin-bottom:12px"><div style="color:var(--text-muted);font-size:13px">${esc(t('comments.empty'))}</div></div>
       <div style="display:flex;gap:8px">
-        <input type="text" class="form-input" id="comment-input" placeholder="${esc(t('comments.placeholder'))}" maxlength="500" style="flex:1;margin-bottom:0">
+        <textarea class="form-input" id="comment-input" placeholder="${esc(t('comments.placeholder'))}" maxlength="500" rows="2" style="flex:1;margin-bottom:0"></textarea>
         <button class="btn btn--primary" id="comment-send" style="white-space:nowrap">${esc(t('comments.send'))}</button>
       </div>
     `,
@@ -942,7 +942,7 @@ function showMatchDetailModal(match) {
 
   document.getElementById('comment-send').addEventListener('click', () => submitComment(match.id));
   document.getElementById('comment-input').addEventListener('keydown', e => {
-    if (e.key === 'Enter') submitComment(match.id);
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitComment(match.id); }
   });
 }
 

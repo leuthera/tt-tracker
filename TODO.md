@@ -36,7 +36,7 @@
 - [x] Live result preview while entering scores
 - [x] Save button disables during submission (prevents double-submit)
 - [x] Edit match — the user who created a match can edit it, and admins can edit any match
-- [ ] Edit match should allow adding/removing sets (not just editing existing set scores)
+- [x] Edit match should allow adding/removing sets (not just editing existing set scores)
 - [x] Comment section on matches — users can add comments to matches; admins can delete any comment
 
 ## Statistics & Analytics
@@ -186,7 +186,7 @@
 - [x] Fix location photo upload — currently always reports failure
 - [x] Optionally attach a location to a match
 - [x] Auto-detect nearest location via GPS
-- [ ] Add Google Maps link next to location coordinates
+- [x] Add Google Maps link next to location coordinates
 
 ## User Accounts
 

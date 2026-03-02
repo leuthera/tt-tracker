@@ -382,13 +382,21 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   const restoreTab = sessionStorage.getItem('tt-tab');
   sessionStorage.removeItem('tt-tab');
-  if (restoreTab && restoreTab !== 'home') {
-    navigateTo(restoreTab, renderFns);
+  const initialTab = (restoreTab && restoreTab !== 'home') ? restoreTab : 'home';
+  history.replaceState({ tab: initialTab }, '', location.pathname);
+  if (initialTab !== 'home') {
+    navigateTo(initialTab, renderFns, { pushHistory: false });
   } else {
     renderHome();
   }
   updateStaticLabels();
   hideLoading();
+
+  // Browser back/forward navigates between tabs
+  window.addEventListener('popstate', (e) => {
+    const tab = e.state?.tab || 'home';
+    navigateTo(tab, renderFns, { pushHistory: false });
+  });
 
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js');
