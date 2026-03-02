@@ -17,7 +17,7 @@
 
 ```bash
 nvm use 22                   # MUST run before tests
-npm test                     # All tests (~238 tests, node:test)
+npm test                     # All tests (~252 tests, node:test)
 npm run test:unit            # Unit tests only (fast)
 npm run test:integration     # Integration tests only (spawns real processes)
 npm run lint                 # ESLint — no-undef + no-unused-vars only
@@ -31,7 +31,7 @@ npm run lint                 # ESLint — no-undef + no-unused-vars only
 - **js/** — Frontend ES modules (browser-native, no build step):
   - `i18n.js` — translations (EN/DE), language helpers
   - `state.js` — app state, API fetch, CRUD operations (players, matches, locations)
-  - `helpers.js` — esc, avatar, relativeTime, dateGroup, formatSets, haversineDistance
+  - `helpers.js` — esc, avatarColor, mkAvatar, relativeTime, dateGroup, formatSets, haversineDistance
   - `stats.js` — pure stats functions (computeStats, getLeaderboard, computeH2H, filterMatchesByDateRange, computeAchievements)
   - `charts.js` — SVG chart rendering (ELO progression, win rate over time)
   - `ui.js` — modal, toast, loading, match card, swipe-to-delete, navigation
@@ -83,3 +83,4 @@ server.js never touches SQLite directly — it calls db-service.js over HTTP wit
 | `BACKUP_INTERVAL_HOURS` | `24` | Auto-backup interval in hours (0 = disabled) |
 | `LOG_LEVEL` | `info` | pino log level (trace/debug/info/warn/error/fatal/silent) |
 | `GRAFANA_ADMIN_PASS` | `admin` | Grafana admin password (monitoring overlay only) |
+| `GRAFANA_PROTOCOL` | `http` | Grafana protocol — set to `https` when TLS is enabled (monitoring overlay only) |

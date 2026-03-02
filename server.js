@@ -7,7 +7,7 @@
  * player stats, and head-to-head records.
  *
  * PREREQUISITES:
- *   - Node.js 18+ (uses built-in crypto and fetch)
+ *   - Node.js 22+ (uses built-in crypto and fetch)
  *   - npm (for installing dependencies)
  *
  * SETUP & RUN:

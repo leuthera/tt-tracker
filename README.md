@@ -42,7 +42,12 @@ flowchart TD
     PEEK -- "Yes (TLS)" --> HTTPS["HTTPS Server"]
     PEEK -- "No (plain)" --> REDIR["301 → HTTPS"]
 
+    subgraph No TLS
+        PLAIN["Plain HTTP Server"]
+    end
+
     HTTPS --> AUTH{"Session<br/>valid?"}
+    PLAIN --> AUTH
     AUTH -- "No" --> LOGIN["Login Page"]
     AUTH -- "Yes" --> ROUTE{"Route"}
 
@@ -69,11 +74,13 @@ flowchart TD
 - **Multi-language** — English and German
 - **Offline support** — log matches offline, sync when back online
 - **Data export** — CSV and JSON export
+- **Pull-to-refresh** — swipe down to refresh the current tab
+- **Backups** — admin-managed SQLite backups with scheduled auto-backup and restore
 - **PWA** — installable progressive web app with dark mode
 
 ## Stack
 
-- Node.js + Express + SQLite (better-sqlite3)
+- Node.js 22+ + Express + SQLite (better-sqlite3)
 - Vanilla JS single-page frontend
 - Docker Compose (prod + test instances)
 
@@ -81,16 +88,21 @@ flowchart TD
 
 Two roles: **admin** (full access including delete and user management) and **user** (can log matches and view stats, cannot delete).
 
-On first startup, the admin account is seeded from `ADMIN_USER`/`ADMIN_PASS` env vars. After that, admins manage users through the UI (gear icon in the header). `ADMIN_PASS` is only required when no users exist yet.
+On first startup, the admin account is seeded from `ADMIN_USER`/`ADMIN_PASS` env vars. After that, admins manage users through the UI (gear icon in the header). `ADMIN_PASS` is only required when no users exist yet. When a new user is created, a matching player is automatically created.
 
 ## Run
 
 ```bash
 npm install
-ADMIN_PASS=yourpassword node server.js
+
+# Start db-service (in a separate terminal)
+DB_TOKEN=secret DB_PATH=./data.db node db-service.js
+
+# Start the app
+ADMIN_PASS=yourpassword DB_TOKEN=secret DB_URL=http://localhost:3000 node server.js
 ```
 
-Runs on `http://localhost:8000`. The build version (git SHA) is shown in the header when built with `--build-arg BUILD_SHA=<hash>`.
+Runs on `http://localhost:8000`. Requires Node.js 22+ (better-sqlite3 native bindings). The build version (git SHA) is shown in the header when built with `--build-arg BUILD_SHA=<hash>`.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -103,6 +115,13 @@ Runs on `http://localhost:8000`. The build version (git SHA) is shown in the hea
 | `BUILD_SHA` | `dev` | Git commit hash shown in UI header |
 | `TLS_CERT` | — | Path to TLS certificate (enables HTTPS) |
 | `TLS_KEY` | — | Path to TLS private key |
+| `DB_PATH` | `./data.db` | SQLite database file path (db-service only) |
+| `BACKUP_PATH` | `{DB_PATH dir}/backups` | Backup storage directory (db-service only) |
+| `BACKUP_MAX` | `7` | Max backups to retain |
+| `BACKUP_INTERVAL_HOURS` | `24` | Auto-backup interval in hours (0 = disabled) |
+| `LOG_LEVEL` | `info` | Log level (trace/debug/info/warn/error/fatal/silent) |
+| `GRAFANA_ADMIN_PASS` | `admin` | Grafana admin password (monitoring overlay only) |
+| `GRAFANA_PROTOCOL` | `http` | Grafana protocol (monitoring overlay only) |
 
 ## Docker Compose
 
@@ -116,3 +135,10 @@ docker compose up --build -d
 | db | 3000 (internal) | Production SQLite service |
 | app-test | 8001 | Test instance |
 | db-test | 3000 (internal) | Test SQLite service |
+
+Optional monitoring overlay (`docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up`):
+
+| Service | Port | Description |
+|---------|------|-------------|
+| loki | 3100 (internal) | Log aggregation |
+| grafana | 3001 | Dashboards and log viewer |
