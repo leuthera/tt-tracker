@@ -12,12 +12,18 @@ services:
       driver: loki
       options:
         loki-url: "http://localhost:3100/loki/api/v1/push"
+        mode: non-blocking
+        max-buffer-size: "5m"
+        loki-retries: "3"
 
   db:
     logging:
       driver: loki
       options:
         loki-url: "http://localhost:3100/loki/api/v1/push"
+        mode: non-blocking
+        max-buffer-size: "5m"
+        loki-retries: "3"
 
   loki:
     image: grafana/loki:3.4
