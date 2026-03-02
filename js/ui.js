@@ -245,9 +245,10 @@ function initPullToRefresh(onRefresh) {
     if (!pulling) return;
     const dy = e.touches[0].clientY - startY;
     if (dy < 0 || window.scrollY > 0) { pulling = false; ptrEl.style.height = ''; ptrEl.classList.remove('pull-to-refresh--pulling'); return; }
+    e.preventDefault();
     ptrEl.classList.add('pull-to-refresh--pulling');
     ptrEl.style.height = Math.min(dy * 0.4, THRESHOLD) + 'px';
-  }, { passive: true });
+  }, { passive: false });
 
   document.addEventListener('touchend', async () => {
     if (!pulling) return;
