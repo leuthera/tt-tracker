@@ -14,10 +14,17 @@ function showModal({ title, bodyHTML, footerHTML }) {
   footer.innerHTML = footerHTML || '';
   footer.style.display = footerHTML ? '' : 'none';
   document.getElementById('modal-overlay').classList.add('active');
+  history.pushState({ modal: true, tab: state.currentTab }, '', location.pathname);
 }
 
-function hideModal() {
+function hideModal({ skipHistory = false } = {}) {
+  const wasOpen = document.getElementById('modal-overlay').classList.contains('active');
   document.getElementById('modal-overlay').classList.remove('active');
+  if (wasOpen && !skipHistory) history.back();
+}
+
+function isModalOpen() {
+  return document.getElementById('modal-overlay').classList.contains('active');
 }
 
 function showConfirmModal(message, onConfirm) {
@@ -269,7 +276,7 @@ function initPullToRefresh(onRefresh) {
 }
 
 export {
-  showModal, hideModal, showConfirmModal, showToast,
+  showModal, hideModal, isModalOpen, showConfirmModal, showToast,
   showLoading, hideLoading,
   createMatchCard, initSwipeToDelete,
   populateFilter,

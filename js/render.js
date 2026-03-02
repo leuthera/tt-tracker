@@ -924,9 +924,9 @@ function showMatchDetailModal(match) {
       </div>
       <div class="section__title" style="margin-bottom:8px">${esc(t('comments.title'))}</div>
       <div id="comments-list" style="margin-bottom:12px"><div style="color:var(--text-muted);font-size:13px">${esc(t('comments.empty'))}</div></div>
-      <div style="display:flex;gap:8px">
-        <textarea class="form-input" id="comment-input" placeholder="${esc(t('comments.placeholder'))}" maxlength="500" rows="2" style="flex:1;margin-bottom:0"></textarea>
-        <button class="btn btn--primary" id="comment-send" style="white-space:nowrap">${esc(t('comments.send'))}</button>
+      <div>
+        <textarea class="form-input" id="comment-input" placeholder="${esc(t('comments.placeholder'))}" maxlength="500" rows="2" style="width:100%;margin-bottom:8px"></textarea>
+        <button class="btn btn--primary" id="comment-send">${esc(t('comments.send'))}</button>
       </div>
     `,
     footerHTML: `<button class="btn btn--secondary" id="modal-share-match">${esc(t('match.share'))}</button>`

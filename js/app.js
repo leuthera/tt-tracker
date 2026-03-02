@@ -2,7 +2,7 @@
 
 import { t, getLang, setLang } from './i18n.js';
 import { state, apiFetch, refreshAll, logClientError } from './state.js';
-import { showToast, hideLoading, navigateTo, hideModal, initPullToRefresh } from './ui.js';
+import { showToast, hideLoading, navigateTo, hideModal, isModalOpen, initPullToRefresh } from './ui.js';
 import {
   setRenderFns,
   renderHome, renderNewMatchTab, renderPlayers, renderHistory, renderStats,
@@ -392,8 +392,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   updateStaticLabels();
   hideLoading();
 
-  // Browser back/forward navigates between tabs
+  // Browser back/forward: close modal or navigate between tabs
   window.addEventListener('popstate', (e) => {
+    if (isModalOpen()) {
+      hideModal({ skipHistory: true });
+      return;
+    }
     const tab = e.state?.tab || 'home';
     navigateTo(tab, renderFns, { pushHistory: false });
   });
