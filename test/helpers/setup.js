@@ -36,7 +36,7 @@ async function startDbService(options = {}) {
   const port = getRandomPort();
   const dbPath = options.dbPath || ':memory:';
   const proc = spawn(process.execPath, [path.join(ROOT, 'db-service.js')], {
-    env: { ...process.env, PORT: String(port), DB_PATH: dbPath, DB_TOKEN: TEST_DB_TOKEN },
+    env: { ...process.env, PORT: String(port), DB_PATH: dbPath, DB_TOKEN: TEST_DB_TOKEN, LOG_LEVEL: 'warn' },
     stdio: ['pipe', 'pipe', 'pipe'],
   });
 
@@ -64,6 +64,7 @@ async function startServer(dbUrl) {
       ADMIN_PASS: 'testpass123',
       SESSION_SECRET: 'test-secret',
       DB_TOKEN: TEST_DB_TOKEN,
+      LOG_LEVEL: 'warn',
     },
     stdio: ['pipe', 'pipe', 'pipe'],
   });

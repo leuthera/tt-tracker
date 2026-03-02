@@ -4,6 +4,7 @@ const express = require('express');
 const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
+const log = require('./lib/logger').child({ service: 'db' });
 
 const PORT = process.env.PORT || 3000;
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'data.db');
@@ -208,7 +209,7 @@ app.post('/players', (req, res) => {
     res.json(stmts.getPlayer.get(id));
   } catch (e) {
     if (e.message.includes('UNIQUE')) return res.status(409).json({ error: 'UNIQUE constraint' });
-    console.error('Insert player error:', e.message);
+    log.error({ err: e }, 'Insert player error');
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -254,7 +255,7 @@ app.post('/matches', (req, res) => {
     stmts.insertMatch.run(id, date, player1_id, player2_id, sets, winner_id, note || '', location_id || null, creator_id || null, is_doubles ? 1 : 0, player3_id || null, player4_id || null);
     res.json(stmts.getMatch.get(id));
   } catch (e) {
-    console.error('Insert match error:', e.message);
+    log.error({ err: e }, 'Insert match error');
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -277,7 +278,7 @@ app.put('/matches/:id', (req, res) => {
     );
     res.json(stmts.getMatch.get(id));
   } catch (e) {
-    console.error('Update match error:', e.message);
+    log.error({ err: e }, 'Update match error');
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -303,7 +304,7 @@ app.post('/matches/:id/comments', (req, res) => {
     stmts.insertComment.run(id, req.params.id, user_id, username, text, Date.now());
     res.json(stmts.getComment.get(id));
   } catch (e) {
-    console.error('Insert comment error:', e.message);
+    log.error({ err: e }, 'Insert comment error');
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -334,7 +335,7 @@ app.post('/locations', (req, res) => {
     res.json(stmts.getLocation.get(id));
   } catch (e) {
     if (e.message.includes('UNIQUE')) return res.status(409).json({ error: 'UNIQUE constraint' });
-    console.error('Insert location error:', e.message);
+    log.error({ err: e }, 'Insert location error');
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -354,7 +355,7 @@ app.put('/locations/:id', (req, res) => {
     res.json(stmts.getLocation.get(id));
   } catch (e) {
     if (e.message.includes('UNIQUE')) return res.status(409).json({ error: 'UNIQUE constraint' });
-    console.error('Update location error:', e.message);
+    log.error({ err: e }, 'Update location error');
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -383,7 +384,7 @@ app.post('/locations/:id/image', (req, res) => {
     stmts.updateLocationImage.run('uploaded', req.params.id);
     res.json({ ok: true });
   } catch (e) {
-    console.error('Image upload error:', e.message);
+    log.error({ err: e }, 'Image upload error');
     res.status(500).json({ error: 'Image upload failed' });
   }
 });
@@ -452,7 +453,7 @@ app.post('/elo/recalculate', (req, res) => {
     recalculateEloTransaction();
     res.json({ ok: true });
   } catch (e) {
-    console.error('ELO recalculate error:', e.message);
+    log.error({ err: e }, 'ELO recalculate error');
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -481,7 +482,7 @@ app.post('/users', (req, res) => {
     res.json({ id: user.id, username: user.username, role: user.role, created_at: user.created_at });
   } catch (e) {
     if (e.message.includes('UNIQUE')) return res.status(409).json({ error: 'UNIQUE constraint' });
-    console.error('Insert user error:', e.message);
+    log.error({ err: e }, 'Insert user error');
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -538,7 +539,7 @@ app.post('/backups', async (req, res) => {
     enforceRetention();
     res.json({ ok: true, name });
   } catch (e) {
-    console.error('Backup error:', e.message);
+    log.error({ err: e }, 'Backup error');
     res.status(500).json({ error: 'Backup failed' });
   }
 });
@@ -581,7 +582,7 @@ app.post('/backups/:filename/restore', async (req, res) => {
     // Exit so Docker restarts the process with the restored DB
     setTimeout(() => process.exit(0), 100);
   } catch (e) {
-    console.error('Restore error:', e.message);
+    log.error({ err: e }, 'Restore error');
     res.status(500).json({ error: 'Restore failed' });
   }
 });
@@ -594,16 +595,15 @@ if (DB_PATH !== ':memory:' && BACKUP_INTERVAL_HOURS > 0) {
       const name = backupFilename();
       await db.backup(path.join(BACKUP_DIR, name));
       enforceRetention();
-      console.log(`Scheduled backup created: ${name}`);
+      log.info({ name }, 'Scheduled backup created');
     } catch (e) {
-      console.error('Scheduled backup error:', e.message);
+      log.error({ err: e }, 'Scheduled backup error');
     }
   }, intervalMs).unref();
-  console.log(`Scheduled backups every ${BACKUP_INTERVAL_HOURS}h (max ${BACKUP_MAX} retained)`);
+  log.info({ intervalHours: BACKUP_INTERVAL_HOURS, maxRetained: BACKUP_MAX }, 'Scheduled backups enabled');
 }
 
 // ─── START ────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
-  console.log(`DB service running on port ${PORT}`);
-  console.log(`Database: ${DB_PATH}`);
+  log.info({ port: PORT, dbPath: DB_PATH }, 'DB service started');
 });

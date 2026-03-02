@@ -81,3 +81,5 @@ server.js never touches SQLite directly — it calls db-service.js over HTTP wit
 | `BACKUP_PATH` | `{DB_PATH dir}/backups` | Backup storage directory (db-service only) |
 | `BACKUP_MAX` | `7` | Max backups to retain |
 | `BACKUP_INTERVAL_HOURS` | `24` | Auto-backup interval in hours (0 = disabled) |
+| `LOG_LEVEL` | `info` | pino log level (trace/debug/info/warn/error/fatal/silent) |
+| `GRAFANA_ADMIN_PASS` | `admin` | Grafana admin password (monitoring overlay only) |

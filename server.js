@@ -46,6 +46,7 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const { hashPassword, verifyPassword, dbToPlayer, dbToMatch, dbToComment, dbToLocation, dbToUser, dbToEloHistory, determineWinner } = require('./lib/helpers');
+const log = require('./lib/logger').child({ service: 'app' });
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const ADMIN_USER = process.env.ADMIN_USER || 'admin';
@@ -290,14 +291,14 @@ app.get('/login', (req, res) => {
 app.post('/login', async (req, res) => {
   const clientIp = req.ip || req.socket.remoteAddress;
   if (!checkLoginRateLimit(clientIp)) {
-    console.warn(`Rate-limited login attempt from ${clientIp}`);
+    log.warn({ ip: clientIp }, 'Rate-limited login attempt');
     return res.status(429).send(loginHTML.replace('{{ERROR}}',
       '<div class="error"><span class="lang-en">Too many login attempts. Please try again later.</span><span class="lang-de" style="display:none">Zu viele Anmeldeversuche. Bitte sp\u00e4ter erneut versuchen.</span></div>'));
   }
 
   const { username, password } = req.body;
   if (typeof username !== 'string' || typeof password !== 'string') {
-    console.warn(`Failed login from ${clientIp}: missing fields`);
+    log.warn({ ip: clientIp }, 'Login failed: missing fields');
     return res.send(loginHTML.replace('{{ERROR}}',
       '<div class="error"><span class="lang-en">Invalid username or password</span><span class="lang-de" style="display:none">Ung\u00fcltiger Benutzername oder Passwort</span></div>'));
   }
@@ -305,7 +306,7 @@ app.post('/login', async (req, res) => {
   try {
     const user = await dbFetch(`/users/by-username/${encodeURIComponent(username)}`);
     if (!verifyPassword(password, user.password)) {
-      console.warn(`Failed login from ${clientIp}: user="${username}"`);
+      log.warn({ ip: clientIp, username }, 'Login failed: bad password');
       return res.send(loginHTML.replace('{{ERROR}}',
         '<div class="error"><span class="lang-en">Invalid username or password</span><span class="lang-de" style="display:none">Ung\u00fcltiger Benutzername oder Passwort</span></div>'));
     }
@@ -315,7 +316,7 @@ app.post('/login', async (req, res) => {
     req.session.role = user.role;
     res.redirect('/');
   } catch (e) {
-    console.warn(`Failed login from ${clientIp}: user="${username}"`);
+    log.warn({ ip: clientIp, username }, 'Login failed: user not found');
     return res.send(loginHTML.replace('{{ERROR}}',
       '<div class="error"><span class="lang-en">Invalid username or password</span><span class="lang-de" style="display:none">Ung\u00fcltiger Benutzername oder Passwort</span></div>'));
   }
@@ -365,7 +366,7 @@ app.post('/api/client-errors', requireAuth, (req, res) => {
   const safeCol = typeof col === 'number' ? col : '';
   const safeUA = typeof userAgent === 'string' ? userAgent.slice(0, 300) : '';
 
-  console.error(`[CLIENT ERROR] user=${req.session.username} url=${safeUrl} line=${safeLine} col=${safeCol} ua=${safeUA} message=${safeMsg}${safeStack ? '\n' + safeStack : ''}`);
+  log.warn({ user: req.session.username, url: safeUrl, line: safeLine, col: safeCol, ua: safeUA, message: safeMsg, stack: safeStack || undefined }, 'Client error');
   res.json({ ok: true });
 });
 
@@ -509,7 +510,7 @@ app.post('/api/matches', requireAuth, async (req, res) => {
         player4_id: player4Id || null,
       }),
     });
-    recalculateElo().catch(e => console.error('ELO recalculate error:', e.message));
+    recalculateElo().catch(e => log.error({ err: e }, 'ELO recalculate error'));
     res.json(dbToMatch(match));
   } catch (e) {
     res.status(500).json({ error: 'Database error' });
@@ -584,7 +585,7 @@ app.put('/api/matches/:id', requireAuth, async (req, res) => {
         player4_id: player4Id !== undefined ? (player4Id || null) : undefined,
       }),
     });
-    recalculateElo().catch(e => console.error('ELO recalculate error:', e.message));
+    recalculateElo().catch(e => log.error({ err: e }, 'ELO recalculate error'));
     res.json(dbToMatch(match));
   } catch (e) {
     res.status(500).json({ error: 'Database error' });
@@ -594,7 +595,7 @@ app.put('/api/matches/:id', requireAuth, async (req, res) => {
 app.delete('/api/matches/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
     const result = await dbFetch(`/matches/${req.params.id}`, { method: 'DELETE' });
-    recalculateElo().catch(e => console.error('ELO recalculate error:', e.message));
+    recalculateElo().catch(e => log.error({ err: e }, 'ELO recalculate error'));
     res.json(result);
   } catch (e) {
     res.status(500).json({ error: 'Database error' });
@@ -923,7 +924,7 @@ async function bootstrapAdmin(retries = 10, delayMs = 2000) {
       const { count } = await dbFetch('/users/count');
       if (count === 0) {
         if (!ADMIN_PASS) {
-          console.error('ERROR: ADMIN_PASS environment variable is required for initial admin setup');
+          log.fatal('ADMIN_PASS environment variable is required for initial admin setup');
           process.exit(1);
         }
         const hashed = hashPassword(ADMIN_PASS);
@@ -940,15 +941,15 @@ async function bootstrapAdmin(retries = 10, delayMs = 2000) {
             body: JSON.stringify({ name: ADMIN_USER }),
           });
         } catch (_) { /* player may already exist */ }
-        console.log(`Admin user "${ADMIN_USER}" created`);
+        log.info({ username: ADMIN_USER }, 'Admin user created');
       }
       return;
     } catch (e) {
       if (attempt < retries) {
-        console.log(`Waiting for db-service... (attempt ${attempt}/${retries})`);
+        log.info({ attempt, retries }, 'Waiting for db-service');
         await new Promise(r => setTimeout(r, delayMs));
       } else {
-        console.error('Failed to bootstrap admin user:', e.message);
+        log.fatal({ err: e }, 'Failed to bootstrap admin user');
         process.exit(1);
       }
     }
@@ -982,14 +983,11 @@ async function start() {
         process.nextTick(() => socket.resume());
       });
     }).listen(PORT, () => {
-      console.log(`TT Tracker running at https://localhost:${PORT}`);
-      console.log(`HTTP on port ${PORT} redirects to HTTPS`);
-      console.log(`DB service: ${DB_URL}`);
+      log.info({ port: PORT, protocol: 'https', dbUrl: DB_URL }, 'TT Tracker started');
     });
   } else {
     app.listen(PORT, () => {
-      console.log(`TT Tracker running at http://localhost:${PORT}`);
-      console.log(`DB service: ${DB_URL}`);
+      log.info({ port: PORT, protocol: 'http', dbUrl: DB_URL }, 'TT Tracker started');
     });
   }
 }

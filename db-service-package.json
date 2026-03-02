@@ -4,6 +4,7 @@
   "private": true,
   "dependencies": {
     "better-sqlite3": "^12.6.2",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "pino": "^9.6.0"
   }
 }

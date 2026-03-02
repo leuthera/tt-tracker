@@ -14,12 +14,14 @@
   "license": "ISC",
   "dependencies": {
     "express": "^5.2.1",
-    "express-session": "^1.19.0"
+    "express-session": "^1.19.0",
+    "pino": "^9.6.0"
   },
   "devDependencies": {
     "better-sqlite3": "^12.6.2",
     "eslint": "^9.39.3",
     "eslint-plugin-html": "^8.1.4",
-    "globals": "^17.3.0"
+    "globals": "^17.3.0",
+    "pino-pretty": "^13.0.0"
   }
 }
