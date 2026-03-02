@@ -12,25 +12,37 @@ services:
       driver: loki
       options:
         loki-url: "http://localhost:3100/loki/api/v1/push"
+        loki-external-labels: "job=tt-tracker,service=app"
         mode: non-blocking
         max-buffer-size: "5m"
-        loki-retries: "3"
+        loki-retries: "5"
+        loki-batch-size: "400"
 
   db:
     logging:
       driver: loki
       options:
         loki-url: "http://localhost:3100/loki/api/v1/push"
+        loki-external-labels: "job=tt-tracker,service=db"
         mode: non-blocking
         max-buffer-size: "5m"
-        loki-retries: "3"
+        loki-retries: "5"
+        loki-batch-size: "400"
 
   loki:
     image: grafana/loki:3.4
+    command: -config.file=/etc/loki/loki-config.yml
     ports:
       - "3100:3100"
     volumes:
       - loki-data:/loki
+      - ./monitoring/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:3100/ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     restart: unless-stopped
 
   grafana:
@@ -49,7 +61,8 @@ services:
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
       - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
-      - loki
+      loki:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget --spider -q --no-check-certificate http://localhost:3001/api/health || wget --spider -q --no-check-certificate https://localhost:3001/api/health"]
       interval: 30s
