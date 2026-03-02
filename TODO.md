@@ -128,6 +128,7 @@
 
 - [x] Dockerfile (Node 22 Alpine, production deps only)
 - [x] Data directory for SQLite volume mount (`/data`)
+- [ ] Backup strategy — automated SQLite database backups (scheduled snapshots, retention policy, restore procedure)
 
 ## Future Enhancements
 
