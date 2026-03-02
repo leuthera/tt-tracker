@@ -263,9 +263,9 @@ function attachListeners() {
   });
 
   // Pull to refresh
-  initPullToRefresh(async () => {
-    await refreshAll();
-    await renderFns[state.currentTab]?.();
+  initPullToRefresh(() => {
+    sessionStorage.setItem('tt-tab', state.currentTab);
+    location.reload();
   });
 }
 
