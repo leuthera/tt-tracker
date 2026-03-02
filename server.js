@@ -94,7 +94,7 @@ app.use(express.urlencoded({ extended: false, limit: '500kb' }));
 app.use((req, res, next) => {
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('Content-Security-Policy', "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'");
+  res.setHeader('Content-Security-Policy', "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data: blob:");
   if (TLS_CERT && TLS_KEY) {
     res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains');
   }
