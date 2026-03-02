@@ -87,9 +87,12 @@ jobs:
               echo "TLS_KEY=/etc/letsencrypt/live/h2266675.stratoserver.net/privkey.pem" >> .env
               echo "WARNING: Created default .env — update ADMIN_PASS!"
             fi
+            # Ensure Loki Docker log driver is installed
+            docker plugin inspect loki > /dev/null 2>&1 || \
+              docker plugin install grafana/loki-docker-driver:latest --alias loki --grant-all-permissions
             BUILD_SHA=$(git rev-parse --short HEAD)
-            docker compose build --build-arg BUILD_SHA=$BUILD_SHA app db
-            docker compose up -d app db
+            docker compose -f docker-compose.yml -f docker-compose.monitoring.yml build --build-arg BUILD_SHA=$BUILD_SHA app db
+            docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d
             echo "Waiting for app to be healthy..."
             for i in $(seq 1 60); do
               if curl -sfk https://localhost:8000/healthz > /dev/null 2>&1; then
@@ -99,5 +102,5 @@ jobs:
               sleep 1
             done
             echo "WARNING: app not healthy after 60s"
-            docker compose logs --tail=20 app
+            docker compose -f docker-compose.yml -f docker-compose.monitoring.yml logs --tail=20 app
             exit 1
