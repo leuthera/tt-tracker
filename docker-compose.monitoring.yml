@@ -39,16 +39,22 @@ services:
       - "3001:3001"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASS:-admin}
-      - GF_SERVER_PROTOCOL=https
+      - GF_SERVER_PROTOCOL=${GRAFANA_PROTOCOL:-http}
       - GF_SERVER_HTTP_PORT=3001
-      - GF_SERVER_CERT_FILE=/etc/letsencrypt/live/h2266675.stratoserver.net/fullchain.pem
-      - GF_SERVER_CERT_KEY=/etc/letsencrypt/live/h2266675.stratoserver.net/privkey.pem
+      - GF_SERVER_CERT_FILE=${TLS_CERT:-}
+      - GF_SERVER_CERT_KEY=${TLS_KEY:-}
     volumes:
       - grafana-data:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
       - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
       - loki
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q --no-check-certificate http://localhost:3001/api/health || wget --spider -q --no-check-certificate https://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     restart: unless-stopped
 
 volumes:

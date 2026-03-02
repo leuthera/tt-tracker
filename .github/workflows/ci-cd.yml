@@ -85,6 +85,7 @@ jobs:
               echo "SESSION_SECRET=$(openssl rand -hex 32)" >> .env
               echo "TLS_CERT=/etc/letsencrypt/live/h2266675.stratoserver.net/fullchain.pem" >> .env
               echo "TLS_KEY=/etc/letsencrypt/live/h2266675.stratoserver.net/privkey.pem" >> .env
+              echo "GRAFANA_PROTOCOL=https" >> .env
               echo "WARNING: Created default .env — update ADMIN_PASS!"
             fi
             # Open Grafana port if firewall is active
