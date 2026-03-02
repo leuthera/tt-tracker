@@ -88,6 +88,8 @@ jobs:
               echo "GRAFANA_PROTOCOL=https" >> .env
               echo "WARNING: Created default .env — update ADMIN_PASS!"
             fi
+            # Ensure new env vars exist in .env (appends missing keys only)
+            grep -q '^GRAFANA_PROTOCOL=' .env || echo "GRAFANA_PROTOCOL=https" >> .env
             # Open Grafana port if firewall is active
             sudo ufw allow 3001/tcp 2>/dev/null || true
             # Ensure Loki Docker log driver is installed
