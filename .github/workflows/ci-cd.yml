@@ -96,6 +96,9 @@ jobs:
             docker plugin inspect loki > /dev/null 2>&1 || \
               docker plugin install grafana/loki-docker-driver:latest --alias loki --grant-all-permissions
             BUILD_SHA=$(git rev-parse --short HEAD)
+            # One-time: reset loki volume after config change (safe to remove after next deploy)
+            docker compose -f docker-compose.yml -f docker-compose.monitoring.yml stop loki 2>/dev/null || true
+            docker volume rm tt-tracker_loki-data 2>/dev/null || true
             docker compose -f docker-compose.yml -f docker-compose.monitoring.yml build --build-arg BUILD_SHA=$BUILD_SHA app db
             docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d
             echo "Waiting for app to be healthy..."
