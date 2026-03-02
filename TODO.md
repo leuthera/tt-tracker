@@ -10,6 +10,7 @@
 - [x] Session redirect (401 on API, redirect on pages)
 - [x] Environment variable support for SESSION_SECRET and DB_PATH
 - [x] Password hashing (scrypt via built-in crypto module)
+- [ ] Fingerprint login (WebAuthn) — allow users to register a fingerprint/biometric credential and use it to log in
 
 ## Player Management
 
