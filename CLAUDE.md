@@ -78,3 +78,6 @@ server.js never touches SQLite directly — it calls db-service.js over HTTP wit
 | `BUILD_SHA` | `dev` | Injected via Docker build arg |
 | `TLS_CERT` / `TLS_KEY` | — | Enables HTTPS |
 | `DB_PATH` | `./data.db` | db-service only |
+| `BACKUP_PATH` | `{DB_PATH dir}/backups` | Backup storage directory (db-service only) |
+| `BACKUP_MAX` | `7` | Max backups to retain |
+| `BACKUP_INTERVAL_HOURS` | `24` | Auto-backup interval in hours (0 = disabled) |

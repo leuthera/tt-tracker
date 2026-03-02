@@ -112,6 +112,11 @@
 - [x] `GET /login` — login page
 - [x] `POST /login` — authenticate
 - [x] `POST /logout` — sign out
+- [x] `POST /api/backups` — create backup (admin only)
+- [x] `GET /api/backups` — list backups (admin only)
+- [x] `GET /api/backups/:filename` — download backup (admin only)
+- [x] `DELETE /api/backups/:filename` — delete backup (admin only)
+- [x] `POST /api/backups/:filename/restore` — restore from backup (admin only)
 
 ## Data Persistence
 
@@ -130,7 +135,7 @@
 
 - [x] Dockerfile (Node 22 Alpine, production deps only)
 - [x] Data directory for SQLite volume mount (`/data`)
-- [ ] Backup strategy — automated SQLite database backups (scheduled snapshots, retention policy, restore procedure)
+- [x] Backup strategy — automated SQLite database backups (scheduled snapshots, retention policy, restore procedure)
 
 ## Future Enhancements
 

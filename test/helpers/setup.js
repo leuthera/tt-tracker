@@ -32,10 +32,11 @@ function waitForReady(port, timeoutMs = 10000) {
   });
 }
 
-async function startDbService() {
+async function startDbService(options = {}) {
   const port = getRandomPort();
+  const dbPath = options.dbPath || ':memory:';
   const proc = spawn(process.execPath, [path.join(ROOT, 'db-service.js')], {
-    env: { ...process.env, PORT: String(port), DB_PATH: ':memory:', DB_TOKEN: TEST_DB_TOKEN },
+    env: { ...process.env, PORT: String(port), DB_PATH: dbPath, DB_TOKEN: TEST_DB_TOKEN },
     stdio: ['pipe', 'pipe', 'pipe'],
   });
 

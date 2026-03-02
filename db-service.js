@@ -8,10 +8,17 @@ const fs = require('fs');
 const PORT = process.env.PORT || 3000;
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'data.db');
 const DB_TOKEN = process.env.DB_TOKEN || '';
+const dataDir = path.dirname(DB_PATH === ':memory:' ? './data.db' : DB_PATH);
+const BACKUP_DIR = process.env.BACKUP_PATH || path.resolve(dataDir, 'backups');
+const BACKUP_MAX = Math.max(1, parseInt(process.env.BACKUP_MAX, 10) || 7);
+const BACKUP_INTERVAL_HOURS = Math.max(0, parseFloat(process.env.BACKUP_INTERVAL_HOURS) || 24);
 
 // ─── UPLOADS DIRECTORY ──────────────────────────────────────────────────────
-const uploadsDir = path.resolve(path.dirname(DB_PATH === ':memory:' ? './data.db' : DB_PATH), 'uploads');
+const uploadsDir = path.resolve(dataDir, 'uploads');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+
+// ─── BACKUPS DIRECTORY ──────────────────────────────────────────────────────
+if (!fs.existsSync(BACKUP_DIR)) fs.mkdirSync(BACKUP_DIR, { recursive: true });
 
 // ─── DATABASE ─────────────────────────────────────────────────────────────────
 const db = new Database(DB_PATH);
@@ -493,6 +500,107 @@ app.delete('/users/:id', (req, res) => {
   stmts.deleteUser.run(req.params.id);
   res.json({ ok: true });
 });
+
+// ─── BACKUPS ─────────────────────────────────────────────────────────────────
+const BACKUP_FILENAME_RE = /^backup_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.db$/;
+
+function backupFilename() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  return `backup_${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}_${pad(d.getHours())}-${pad(d.getMinutes())}-${pad(d.getSeconds())}.db`;
+}
+
+function listBackups() {
+  if (!fs.existsSync(BACKUP_DIR)) return [];
+  return fs.readdirSync(BACKUP_DIR)
+    .filter(f => BACKUP_FILENAME_RE.test(f))
+    .sort()
+    .reverse()
+    .map(name => {
+      const stat = fs.statSync(path.join(BACKUP_DIR, name));
+      return { name, size: stat.size, created: stat.mtimeMs };
+    });
+}
+
+function enforceRetention() {
+  const backups = listBackups();
+  while (backups.length > BACKUP_MAX) {
+    const oldest = backups.pop();
+    fs.unlinkSync(path.join(BACKUP_DIR, oldest.name));
+  }
+}
+
+app.post('/backups', async (req, res) => {
+  if (DB_PATH === ':memory:') return res.status(400).json({ error: 'Cannot backup in-memory database' });
+  try {
+    const name = backupFilename();
+    await db.backup(path.join(BACKUP_DIR, name));
+    enforceRetention();
+    res.json({ ok: true, name });
+  } catch (e) {
+    console.error('Backup error:', e.message);
+    res.status(500).json({ error: 'Backup failed' });
+  }
+});
+
+app.get('/backups', (req, res) => {
+  res.json(listBackups());
+});
+
+app.get('/backups/:filename', (req, res) => {
+  const { filename } = req.params;
+  if (!BACKUP_FILENAME_RE.test(filename)) return res.status(400).json({ error: 'Invalid filename' });
+  const filePath = path.join(BACKUP_DIR, filename);
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Backup not found' });
+  res.type('application/octet-stream').sendFile(filePath);
+});
+
+app.delete('/backups/:filename', (req, res) => {
+  const { filename } = req.params;
+  if (!BACKUP_FILENAME_RE.test(filename)) return res.status(400).json({ error: 'Invalid filename' });
+  const filePath = path.join(BACKUP_DIR, filename);
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Backup not found' });
+  fs.unlinkSync(filePath);
+  res.json({ ok: true });
+});
+
+app.post('/backups/:filename/restore', async (req, res) => {
+  if (DB_PATH === ':memory:') return res.status(400).json({ error: 'Cannot restore in-memory database' });
+  const { filename } = req.params;
+  if (!BACKUP_FILENAME_RE.test(filename)) return res.status(400).json({ error: 'Invalid filename' });
+  const filePath = path.join(BACKUP_DIR, filename);
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Backup not found' });
+  try {
+    // Create a safety backup before restoring
+    const safetyName = backupFilename();
+    await db.backup(path.join(BACKUP_DIR, safetyName));
+    // Close db and overwrite with backup
+    db.close();
+    fs.copyFileSync(filePath, DB_PATH);
+    res.json({ ok: true, message: 'Restored. Service will restart.' });
+    // Exit so Docker restarts the process with the restored DB
+    setTimeout(() => process.exit(0), 100);
+  } catch (e) {
+    console.error('Restore error:', e.message);
+    res.status(500).json({ error: 'Restore failed' });
+  }
+});
+
+// ─── SCHEDULED BACKUP ────────────────────────────────────────────────────────
+if (DB_PATH !== ':memory:' && BACKUP_INTERVAL_HOURS > 0) {
+  const intervalMs = BACKUP_INTERVAL_HOURS * 60 * 60 * 1000;
+  setInterval(async () => {
+    try {
+      const name = backupFilename();
+      await db.backup(path.join(BACKUP_DIR, name));
+      enforceRetention();
+      console.log(`Scheduled backup created: ${name}`);
+    } catch (e) {
+      console.error('Scheduled backup error:', e.message);
+    }
+  }, intervalMs).unref();
+  console.log(`Scheduled backups every ${BACKUP_INTERVAL_HOURS}h (max ${BACKUP_MAX} retained)`);
+}
 
 // ─── START ────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {

@@ -861,6 +861,61 @@ app.delete('/api/users/:id', requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
+// ─── API: BACKUPS (admin only) ───────────────────────────────────────────────
+app.post('/api/backups', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const result = await dbFetch('/backups', { method: 'POST' });
+    res.json(result);
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message || 'Backup failed' });
+  }
+});
+
+app.get('/api/backups', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const rows = await dbFetch('/backups');
+    res.json(rows);
+  } catch (e) {
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+app.get('/api/backups/:filename', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const response = await fetch(`${DB_URL}/backups/${req.params.filename}`, {
+      headers: { ...dbHeaders },
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({ error: 'Download failed' }));
+      return res.status(response.status).json(body);
+    }
+    res.type('application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="${req.params.filename}"`);
+    const buf = Buffer.from(await response.arrayBuffer());
+    res.send(buf);
+  } catch (e) {
+    res.status(500).json({ error: 'Download failed' });
+  }
+});
+
+app.delete('/api/backups/:filename', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const result = await dbFetch(`/backups/${req.params.filename}`, { method: 'DELETE' });
+    res.json(result);
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message || 'Delete failed' });
+  }
+});
+
+app.post('/api/backups/:filename/restore', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const result = await dbFetch(`/backups/${req.params.filename}/restore`, { method: 'POST' });
+    res.json(result);
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message || 'Restore failed' });
+  }
+});
+
 // ─── ADMIN BOOTSTRAP ──────────────────────────────────────────────────────────
 async function bootstrapAdmin(retries = 10, delayMs = 2000) {
   for (let attempt = 1; attempt <= retries; attempt++) {
