@@ -8,7 +8,7 @@ import {
   renderHome, renderNewMatchTab, renderPlayers, renderHistory, renderStats,
   showAddPlayerModal, renderSetRows, updateResultPreview, submitMatch
 } from './render.js';
-import { showUsersModal, showChangePasswordModal } from './users.js';
+import { showUsersModal, showChangePasswordModal, showPasskeyModal } from './users.js';
 import { showExportModal } from './export.js';
 import { renderLocations, showAddLocationModal } from './locations.js';
 
@@ -376,6 +376,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       document.getElementById('change-pw-header-btn').style.display = '';
       document.getElementById('change-pw-header-btn').addEventListener('click', showChangePasswordModal);
+      if (window.PublicKeyCredential) {
+        document.getElementById('passkey-header-btn').style.display = '';
+        document.getElementById('passkey-header-btn').addEventListener('click', showPasskeyModal);
+      }
     }
   } catch(e) {
     showToast(t('toast.dataError'), 'error');

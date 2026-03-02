@@ -157,4 +157,70 @@ function showChangePasswordModal() {
   });
 }
 
-export { showUsersModal, showChangePasswordModal };
+async function showPasskeyModal() {
+  const { isWebAuthnAvailable, listPasskeys, registerPasskey, deletePasskey } = await import('./webauthn.js');
+  if (!isWebAuthnAvailable()) return;
+
+  showModal({ title: t('passkey.title'), bodyHTML: `<p style="color:var(--text-muted)">${esc(t('users.loading'))}</p>`, footerHTML: '' });
+
+  async function renderList() {
+    try {
+      const creds = await listPasskeys();
+      let html = '';
+      if (creds.length === 0) {
+        html = `<p style="color:var(--text-muted);text-align:center;padding:16px 0">${esc(t('passkey.noPasskeys'))}</p>`;
+      } else {
+        html = '<div style="display:flex;flex-direction:column;gap:10px">';
+        for (const c of creds) {
+          const date = new Date(c.createdAt).toLocaleDateString();
+          html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--surface-2);border-radius:var(--radius-md)">
+            <div>
+              <div style="font-weight:600;font-size:14px">${esc(c.name || 'Passkey')}</div>
+              <div style="font-size:12px;color:var(--text-muted)">${esc(date)}${c.backedUp ? ' \u2601' : ''}</div>
+            </div>
+            <button class="btn btn--danger" style="padding:6px 10px;font-size:12px;width:auto" data-action="delete-passkey" data-id="${esc(c.id)}" data-name="${esc(c.name || 'Passkey')}">${esc(t('passkey.delete'))}</button>
+          </div>`;
+        }
+        html += '</div>';
+      }
+      document.getElementById('modal-body').innerHTML = html;
+      document.getElementById('modal-body').addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-action="delete-passkey"]');
+        if (!btn) return;
+        const id = btn.dataset.id;
+        const name = btn.dataset.name;
+        showConfirmModal(t('passkey.deleteConfirm', { name }), async () => {
+          try {
+            await deletePasskey(id);
+            showToast(t('passkey.deleted'), 'success');
+            showPasskeyModal();
+          } catch (err) {
+            showToast(err.message, 'error');
+          }
+        });
+      });
+    } catch (e) {
+      document.getElementById('modal-body').innerHTML = `<p style="color:var(--danger)">${esc(t('users.failedLoad'))}</p>`;
+    }
+    const footer = document.getElementById('modal-footer');
+    footer.innerHTML = `<button class="btn btn--primary" id="register-passkey-btn">${esc(t('passkey.register'))}</button>`;
+    footer.style.display = '';
+    document.getElementById('register-passkey-btn').addEventListener('click', async () => {
+      const name = prompt(t('passkey.namePrompt')) || '';
+      if (name === null) return;
+      try {
+        await registerPasskey(name.trim());
+        showToast(t('passkey.registered'), 'success');
+        showPasskeyModal();
+      } catch (err) {
+        if (err.name !== 'NotAllowedError') {
+          showToast(err.message || t('passkey.registerError'), 'error');
+        }
+      }
+    });
+  }
+
+  await renderList();
+}
+
+export { showUsersModal, showChangePasswordModal, showPasskeyModal };

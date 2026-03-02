@@ -60,6 +60,19 @@ db.exec(`
     image TEXT DEFAULT '',
     created_at INTEGER NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS webauthn_credentials (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    credential_id TEXT NOT NULL UNIQUE,
+    public_key TEXT NOT NULL,
+    counter INTEGER NOT NULL DEFAULT 0,
+    transports TEXT DEFAULT '',
+    device_type TEXT DEFAULT '',
+    backed_up INTEGER DEFAULT 0,
+    name TEXT DEFAULT '',
+    created_at INTEGER NOT NULL
+  );
 `);
 
 // ─── MIGRATIONS ─────────────────────────────────────────────────────────────
@@ -161,6 +174,13 @@ const stmts = {
   deleteEloHistoryByMatch: db.prepare('DELETE FROM elo_history WHERE match_id = ?'),
   deleteEloHistoryByPlayer: db.prepare('DELETE FROM elo_history WHERE player_id = ?'),
   updateLocationImage: db.prepare('UPDATE locations SET image = ? WHERE id = ?'),
+  // WebAuthn
+  getWebauthnCredsByUser:    db.prepare('SELECT * FROM webauthn_credentials WHERE user_id = ? ORDER BY created_at DESC'),
+  getWebauthnCredById:       db.prepare('SELECT * FROM webauthn_credentials WHERE credential_id = ?'),
+  insertWebauthnCred:        db.prepare('INSERT INTO webauthn_credentials (id, user_id, credential_id, public_key, counter, transports, device_type, backed_up, name, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'),
+  updateWebauthnCredCounter: db.prepare('UPDATE webauthn_credentials SET counter = ?, backed_up = ? WHERE credential_id = ?'),
+  deleteWebauthnCred:        db.prepare('DELETE FROM webauthn_credentials WHERE id = ?'),
+  getWebauthnCredByPk:       db.prepare('SELECT * FROM webauthn_credentials WHERE id = ?'),
 };
 
 function generateId(prefix) {
@@ -499,6 +519,45 @@ app.delete('/users/:id', (req, res) => {
   const user = stmts.getUser.get(req.params.id);
   if (!user) return res.status(404).json({ error: 'User not found' });
   stmts.deleteUser.run(req.params.id);
+  res.json({ ok: true });
+});
+
+// ─── WEBAUTHN CREDENTIALS ────────────────────────────────────────────────────
+app.get('/users/:id/webauthn-credentials', (req, res) => {
+  res.json(stmts.getWebauthnCredsByUser.all(req.params.id));
+});
+
+app.get('/webauthn-credentials/by-credential-id/:credId', (req, res) => {
+  const row = stmts.getWebauthnCredById.get(req.params.credId);
+  if (!row) return res.status(404).json({ error: 'Credential not found' });
+  res.json(row);
+});
+
+app.post('/users/:id/webauthn-credentials', (req, res) => {
+  const { credential_id, public_key, counter, transports, device_type, backed_up, name } = req.body;
+  const id = generateId('wc');
+  try {
+    stmts.insertWebauthnCred.run(id, req.params.id, credential_id, public_key, counter || 0, transports || '', device_type || '', backed_up ? 1 : 0, name || '', Date.now());
+    res.json(stmts.getWebauthnCredByPk.get(id));
+  } catch (e) {
+    if (e.message.includes('UNIQUE')) return res.status(409).json({ error: 'UNIQUE constraint' });
+    log.error({ err: e }, 'Insert webauthn credential error');
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.put('/webauthn-credentials/:credId/counter', (req, res) => {
+  const { counter, backed_up } = req.body;
+  const row = stmts.getWebauthnCredById.get(req.params.credId);
+  if (!row) return res.status(404).json({ error: 'Credential not found' });
+  stmts.updateWebauthnCredCounter.run(counter, backed_up ? 1 : 0, req.params.credId);
+  res.json({ ok: true });
+});
+
+app.delete('/webauthn-credentials/:id', (req, res) => {
+  const row = stmts.getWebauthnCredByPk.get(req.params.id);
+  if (!row) return res.status(404).json({ error: 'Credential not found' });
+  stmts.deleteWebauthnCred.run(req.params.id);
   res.json({ ok: true });
 });
 

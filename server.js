@@ -46,6 +46,7 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const { hashPassword, verifyPassword, dbToPlayer, dbToMatch, dbToComment, dbToLocation, dbToUser, dbToEloHistory, determineWinner } = require('./lib/helpers');
+const { generateRegistrationOptions, verifyRegistrationResponse, generateAuthenticationOptions, verifyAuthenticationResponse } = require('@simplewebauthn/server');
 const log = require('./lib/logger').child({ service: 'app' });
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
@@ -58,6 +59,18 @@ const DB_URL = process.env.DB_URL || 'http://db:3000';
 const DB_TOKEN = process.env.DB_TOKEN || '';
 const TLS_CERT = process.env.TLS_CERT;
 const TLS_KEY = process.env.TLS_KEY;
+const WEBAUTHN_RP_ID = process.env.WEBAUTHN_RP_ID;
+
+function getRpId(req) {
+  if (WEBAUTHN_RP_ID) return WEBAUTHN_RP_ID;
+  const host = req.get('host') || 'localhost';
+  return host.replace(/:\d+$/, '');
+}
+
+function getOrigin(req) {
+  const proto = (TLS_CERT && TLS_KEY) ? 'https' : req.protocol;
+  return `${proto}://${req.get('host')}`;
+}
 
 // ─── DB CLIENT ────────────────────────────────────────────────────────────────
 const dbHeaders = DB_TOKEN ? { 'Authorization': `Bearer ${DB_TOKEN}` } : {};
@@ -228,6 +241,24 @@ const loginHTML = `<!DOCTYPE html>
     .install-btn:active { background: var(--primary); color: #fff; }
     [data-theme="dark"] .install-btn { color: #4caf50; border-color: #4caf50; }
     [data-theme="dark"] .install-btn:active { background: #4caf50; color: #fff; }
+    .passkey-divider {
+      display: none; text-align: center; margin: 16px 0 12px; position: relative;
+      font-size: 13px; color: var(--text-muted);
+    }
+    .passkey-divider::before, .passkey-divider::after {
+      content: ''; position: absolute; top: 50%; width: 40%; height: 1px; background: var(--border);
+    }
+    .passkey-divider::before { left: 0; }
+    .passkey-divider::after { right: 0; }
+    .passkey-btn {
+      width: 100%; padding: 14px; background: transparent; color: var(--primary);
+      border: 1.5px solid var(--primary); border-radius: var(--radius-md);
+      font-size: 15px; font-weight: 600; cursor: pointer; font-family: inherit;
+      display: none; transition: background 0.15s, color 0.15s;
+    }
+    .passkey-btn:active { background: var(--primary); color: #fff; }
+    [data-theme="dark"] .passkey-btn { color: #4caf50; border-color: #4caf50; }
+    [data-theme="dark"] .passkey-btn:active { background: #4caf50; color: #fff; }
   </style>
 </head>
 <body>
@@ -246,6 +277,13 @@ const loginHTML = `<!DOCTYPE html>
              required placeholder="Enter password">
       <button type="submit"><span class="lang-en">Sign In</span><span class="lang-de" style="display:none">Anmelden</span></button>
     </form>
+    <div class="passkey-divider" id="passkey-divider">
+      <span class="lang-en">or</span><span class="lang-de" style="display:none">oder</span>
+    </div>
+    <button class="passkey-btn" id="passkey-btn">
+      <span class="lang-en">&#128274; Sign in with passkey</span>
+      <span class="lang-de" style="display:none">&#128274; Mit Passkey anmelden</span>
+    </button>
     <button class="install-btn" id="install-btn">
       <span class="lang-en">&#x2B07; Install App</span>
       <span class="lang-de" style="display:none">&#x2B07; App installieren</span>
@@ -280,6 +318,7 @@ const loginHTML = `<!DOCTYPE html>
       });
     })();
   </script>
+  <script src="/js/webauthn-login.js"></script>
 </body>
 </html>`;
 
@@ -392,6 +431,7 @@ app.get('/', requireAuth, (req, res) => {
   res.type('html').send(indexHTML);
 });
 app.use('/css', requireAuth, express.static(path.join(__dirname, 'css')));
+app.get('/js/webauthn-login.js', (req, res) => res.sendFile(path.join(__dirname, 'js/webauthn-login.js')));
 app.use('/js', requireAuth, express.static(path.join(__dirname, 'js')));
 
 // ─── HELPERS (imported from lib/helpers.js) ──────────────────────────────────
@@ -786,6 +826,215 @@ app.put('/api/me/password', requireAuth, async (req, res) => {
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: 'Failed to change password' });
+  }
+});
+
+// ─── API: WEBAUTHN ──────────────────────────────────────────────────────────
+
+// Registration: generate options
+app.post('/api/webauthn/register/options', requireAuth, async (req, res) => {
+  try {
+    const rpId = getRpId(req);
+    const userId = req.session.userId;
+    const username = req.session.username;
+
+    // Get existing credentials to exclude
+    const existing = await dbFetch(`/users/${userId}/webauthn-credentials`);
+    const excludeCredentials = existing.map(c => ({
+      id: c.credential_id,
+      transports: c.transports ? c.transports.split(',').filter(Boolean) : [],
+    }));
+
+    const options = await generateRegistrationOptions({
+      rpName: 'TT Tracker',
+      rpID: rpId,
+      userName: username,
+      attestationType: 'none',
+      authenticatorSelection: {
+        residentKey: 'preferred',
+        userVerification: 'preferred',
+      },
+      excludeCredentials,
+    });
+
+    req.session.webauthnChallenge = options.challenge;
+    res.json(options);
+  } catch (e) {
+    log.error({ err: e }, 'WebAuthn register options error');
+    res.status(500).json({ error: 'Failed to generate registration options' });
+  }
+});
+
+// Registration: verify response
+app.post('/api/webauthn/register/verify', requireAuth, async (req, res) => {
+  try {
+    const challenge = req.session.webauthnChallenge;
+    if (!challenge) return res.status(400).json({ error: 'No challenge found' });
+    delete req.session.webauthnChallenge;
+
+    const rpId = getRpId(req);
+    const origin = getOrigin(req);
+
+    const verification = await verifyRegistrationResponse({
+      response: req.body.response,
+      expectedChallenge: challenge,
+      expectedOrigin: origin,
+      expectedRPID: rpId,
+    });
+
+    if (!verification.verified || !verification.registrationInfo) {
+      return res.status(400).json({ error: 'Verification failed' });
+    }
+
+    const { credential, credentialDeviceType, credentialBackedUp } = verification.registrationInfo;
+
+    await dbFetch(`/users/${req.session.userId}/webauthn-credentials`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        credential_id: credential.id,
+        public_key: Buffer.from(credential.publicKey).toString('base64'),
+        counter: credential.counter,
+        transports: (req.body.response?.response?.transports || []).join(','),
+        device_type: credentialDeviceType || '',
+        backed_up: credentialBackedUp ? 1 : 0,
+        name: req.body.name || '',
+      }),
+    });
+
+    res.json({ ok: true });
+  } catch (e) {
+    log.error({ err: e }, 'WebAuthn register verify error');
+    res.status(400).json({ error: 'Registration verification failed' });
+  }
+});
+
+// Authentication: generate options (no auth required)
+app.post('/api/webauthn/login/options', (req, res, next) => {
+  const clientIp = req.ip || req.socket.remoteAddress;
+  if (!checkLoginRateLimit(clientIp)) {
+    return res.status(429).json({ error: 'Too many attempts. Please try again later.' });
+  }
+  next();
+}, async (req, res) => {
+  try {
+    const rpId = getRpId(req);
+
+    const options = await generateAuthenticationOptions({
+      rpID: rpId,
+      userVerification: 'preferred',
+    });
+
+    req.session.webauthnChallenge = options.challenge;
+    res.json(options);
+  } catch (e) {
+    log.error({ err: e }, 'WebAuthn login options error');
+    res.status(500).json({ error: 'Failed to generate authentication options' });
+  }
+});
+
+// Authentication: verify response (no auth required)
+app.post('/api/webauthn/login/verify', (req, res, next) => {
+  const clientIp = req.ip || req.socket.remoteAddress;
+  if (!checkLoginRateLimit(clientIp)) {
+    return res.status(429).json({ error: 'Too many attempts. Please try again later.' });
+  }
+  next();
+}, async (req, res) => {
+  try {
+    const challenge = req.session.webauthnChallenge;
+    if (!challenge) return res.status(400).json({ error: 'No challenge found' });
+    delete req.session.webauthnChallenge;
+
+    const credentialId = req.body.response?.id;
+    if (!credentialId) return res.status(400).json({ error: 'Missing credential ID' });
+
+    let storedCred;
+    try {
+      storedCred = await dbFetch(`/webauthn-credentials/by-credential-id/${encodeURIComponent(credentialId)}`);
+    } catch (e) {
+      return res.status(400).json({ error: 'Credential not found' });
+    }
+
+    const rpId = getRpId(req);
+    const origin = getOrigin(req);
+
+    const verification = await verifyAuthenticationResponse({
+      response: req.body.response,
+      expectedChallenge: challenge,
+      expectedOrigin: origin,
+      expectedRPID: rpId,
+      credential: {
+        id: storedCred.credential_id,
+        publicKey: new Uint8Array(Buffer.from(storedCred.public_key, 'base64')),
+        counter: storedCred.counter,
+        transports: storedCred.transports ? storedCred.transports.split(',').filter(Boolean) : [],
+      },
+    });
+
+    if (!verification.verified) {
+      return res.status(400).json({ error: 'Authentication failed' });
+    }
+
+    // Update counter
+    await dbFetch(`/webauthn-credentials/${encodeURIComponent(storedCred.credential_id)}/counter`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        counter: verification.authenticationInfo.newCounter,
+        backed_up: verification.authenticationInfo.credentialBackedUp ? 1 : 0,
+      }),
+    });
+
+    // Look up the user
+    let user;
+    try {
+      user = await dbFetch(`/users`);
+      user = user.find(u => u.id === storedCred.user_id);
+    } catch (e) {
+      return res.status(500).json({ error: 'Failed to look up user' });
+    }
+
+    if (!user) return res.status(400).json({ error: 'User not found' });
+
+    // Create session
+    req.session.loggedIn = true;
+    req.session.userId = user.id;
+    req.session.username = user.username;
+    req.session.role = user.role;
+    res.json({ ok: true });
+  } catch (e) {
+    log.error({ err: e }, 'WebAuthn login verify error');
+    res.status(400).json({ error: 'Authentication verification failed' });
+  }
+});
+
+// Credential management: list current user's passkeys
+app.get('/api/webauthn/credentials', requireAuth, async (req, res) => {
+  try {
+    const creds = await dbFetch(`/users/${req.session.userId}/webauthn-credentials`);
+    res.json(creds.map(c => ({
+      id: c.id,
+      name: c.name,
+      createdAt: c.created_at,
+      deviceType: c.device_type,
+      backedUp: !!c.backed_up,
+    })));
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to list credentials' });
+  }
+});
+
+// Credential management: delete a passkey (own only)
+app.delete('/api/webauthn/credentials/:id', requireAuth, async (req, res) => {
+  try {
+    const creds = await dbFetch(`/users/${req.session.userId}/webauthn-credentials`);
+    const cred = creds.find(c => c.id === req.params.id);
+    if (!cred) return res.status(404).json({ error: 'Credential not found' });
+    await dbFetch(`/webauthn-credentials/${req.params.id}`, { method: 'DELETE' });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to delete credential' });
   }
 });
 

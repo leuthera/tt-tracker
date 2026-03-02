@@ -210,6 +210,17 @@ const translations = {
     // Share
     'match.share': 'Share',
     'match.shareDownloaded': 'Match card saved!',
+    // Passkeys
+    'passkey.title': 'Passkeys',
+    'passkey.register': 'Register new passkey',
+    'passkey.registered': 'Passkey registered!',
+    'passkey.delete': 'Delete',
+    'passkey.deleted': 'Passkey deleted',
+    'passkey.deleteConfirm': 'Delete passkey "{name}"?',
+    'passkey.noPasskeys': 'No passkeys registered',
+    'passkey.loginFailed': 'Passkey login failed',
+    'passkey.namePrompt': 'Name for this passkey (optional)',
+    'passkey.registerError': 'Could not register passkey',
   },
   de: {
     'nav.home': 'Start', 'nav.new': 'Neu', 'nav.players': 'Spieler',
@@ -389,6 +400,17 @@ const translations = {
     // Share
     'match.share': 'Teilen',
     'match.shareDownloaded': 'Spielkarte gespeichert!',
+    // Passkeys
+    'passkey.title': 'Passkeys',
+    'passkey.register': 'Neuen Passkey registrieren',
+    'passkey.registered': 'Passkey registriert!',
+    'passkey.delete': 'L\u00F6schen',
+    'passkey.deleted': 'Passkey gel\u00F6scht',
+    'passkey.deleteConfirm': 'Passkey "{name}" l\u00F6schen?',
+    'passkey.noPasskeys': 'Keine Passkeys registriert',
+    'passkey.loginFailed': 'Passkey-Anmeldung fehlgeschlagen',
+    'passkey.namePrompt': 'Name f\u00FCr diesen Passkey (optional)',
+    'passkey.registerError': 'Passkey konnte nicht registriert werden',
   }
 };
 

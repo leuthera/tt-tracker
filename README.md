@@ -76,6 +76,7 @@ flowchart TD
 - **Data export** — CSV and JSON export
 - **Pull-to-refresh** — swipe down to refresh the current tab
 - **Backups** — admin-managed SQLite backups with scheduled auto-backup and restore
+- **Passkey login** — WebAuthn support for fingerprint/face/security key authentication
 - **PWA** — installable progressive web app with dark mode
 
 ## Stack
@@ -89,6 +90,10 @@ flowchart TD
 Two roles: **admin** (full access including delete and user management) and **user** (can log matches and view stats, cannot delete).
 
 On first startup, the admin account is seeded from `ADMIN_USER`/`ADMIN_PASS` env vars. After that, admins manage users through the UI (gear icon in the header). `ADMIN_PASS` is only required when no users exist yet. When a new user is created, a matching player is automatically created.
+
+### Passkeys (WebAuthn)
+
+Users can register passkeys (fingerprint, face, security key) as an additional login method. Once logged in, use the key icon in the header to manage passkeys. On the login page, a "Sign in with passkey" button appears when the browser supports WebAuthn. Password login remains available — passkeys are purely additive.
 
 ## Run
 
@@ -119,6 +124,7 @@ Runs on `http://localhost:8000`. Requires Node.js 22+ (better-sqlite3 native bin
 | `BACKUP_PATH` | `{DB_PATH dir}/backups` | Backup storage directory (db-service only) |
 | `BACKUP_MAX` | `7` | Max backups to retain |
 | `BACKUP_INTERVAL_HOURS` | `24` | Auto-backup interval in hours (0 = disabled) |
+| `WEBAUTHN_RP_ID` | hostname | Relying Party ID for passkeys (auto-detected from Host header) |
 | `LOG_LEVEL` | `info` | Log level (trace/debug/info/warn/error/fatal/silent) |
 | `GRAFANA_ADMIN_PASS` | `admin` | Grafana admin password (monitoring overlay only) |
 | `GRAFANA_PROTOCOL` | `http` | Grafana protocol (monitoring overlay only) |

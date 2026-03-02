@@ -17,7 +17,7 @@
 
 ```bash
 nvm use 22                   # MUST run before tests
-npm test                     # All tests (~252 tests, node:test)
+npm test                     # All tests (~277 tests, node:test)
 npm run test:unit            # Unit tests only (fast)
 npm run test:integration     # Integration tests only (spawns real processes)
 npm run lint                 # ESLint — no-undef + no-unused-vars only
@@ -40,6 +40,8 @@ npm run lint                 # ESLint — no-undef + no-unused-vars only
   - `users.js` — user management modals (admin)
   - `locations.js` — locations tab rendering, add/edit/detail modals, image upload
   - `sharecard.js` — Canvas-based shareable match result card generation + download
+  - `webauthn.js` — Passkey management (registration, listing, deletion) — ES module
+  - `webauthn-login.js` — Passkey login on login page — standalone IIFE (served publicly, no auth required)
   - `app.js` — entry point: event listeners, theme, offline/sync, init
 - **sw.js** — Service worker: caching, offline queue (IndexedDB), background sync
 - **lib/helpers.js** — Shared server utilities (password hashing, DB row transformers, match logic, ELO rating calculations, CSV escaping, date range filtering, win rate computation, achievements)
@@ -83,4 +85,5 @@ server.js never touches SQLite directly — it calls db-service.js over HTTP wit
 | `BACKUP_INTERVAL_HOURS` | `24` | Auto-backup interval in hours (0 = disabled) |
 | `LOG_LEVEL` | `info` | pino log level (trace/debug/info/warn/error/fatal/silent) |
 | `GRAFANA_ADMIN_PASS` | `admin` | Grafana admin password (monitoring overlay only) |
+| `WEBAUTHN_RP_ID` | hostname from request | Relying Party ID for WebAuthn (auto-detected from Host header) |
 | `GRAFANA_PROTOCOL` | `http` | Grafana protocol — set to `https` when TLS is enabled (monitoring overlay only) |
