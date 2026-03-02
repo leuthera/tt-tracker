@@ -719,17 +719,24 @@ function showEditMatchModal(match, onSaved) {
   const locations = loadLocations();
   const players = loadPlayers();
   let editIsDoubles = !!match.isDoubles;
+  const editSets = match.sets.map(s => ({ p1: s.p1, p2: s.p2 }));
 
-  const setsHTML = match.sets.map((s, i) => `
-    <div class="set-row">
-      <span class="set-row__label">S${i+1}</span>
-      <input class="set-row__score" type="number" inputmode="numeric" min="0" max="99"
-             value="${s.p1}" data-idx="${i}" data-pl="p1">
-      <span class="set-row__sep">\u2013</span>
-      <input class="set-row__score" type="number" inputmode="numeric" min="0" max="99"
-             value="${s.p2}" data-idx="${i}" data-pl="p2">
-    </div>
-  `).join('');
+  function renderEditSets(container) {
+    container.innerHTML = editSets.map((s, i) => `
+      <div class="set-row">
+        <span class="set-row__label">S${i+1}</span>
+        <input class="set-row__score" type="number" inputmode="numeric" min="0" max="99"
+               value="${s.p1}" data-idx="${i}" data-pl="p1">
+        <span class="set-row__sep">\u2013</span>
+        <input class="set-row__score" type="number" inputmode="numeric" min="0" max="99"
+               value="${s.p2}" data-idx="${i}" data-pl="p2">
+        <button class="set-row__remove" data-idx="${i}"
+                ${editSets.length <= 1 ? 'disabled' : ''} aria-label="Remove">\u00D7</button>
+      </div>
+    `).join('');
+  }
+
+  const setsHTML = '';
 
   const locationOpts = locations.map(l =>
     `<option value="${esc(l.id)}" ${match.locationId === l.id ? 'selected' : ''}>${esc(l.name)}</option>`
@@ -760,11 +767,12 @@ function showEditMatchModal(match, onSaved) {
       <div class="form-group">
         <label class="form-label">${esc(t('match.sets'))}</label>
         <div id="edit-sets-container">${setsHTML}</div>
+        <button class="btn btn--secondary mt-sm" id="edit-add-set-btn">${esc(t('match.addSet'))}</button>
       </div>
       <div class="form-group">
         <label class="form-label" for="edit-match-note">${esc(t('match.noteLabel'))}</label>
-        <input type="text" class="form-input" id="edit-match-note" value="${esc(match.note)}" maxlength="500"
-               placeholder="${esc(t('match.notePlaceholder'))}">
+        <textarea class="form-input" id="edit-match-note" maxlength="500" rows="3"
+               placeholder="${esc(t('match.notePlaceholder'))}">${esc(match.note)}</textarea>
       </div>
       <div class="form-group">
         <label class="form-label" for="edit-match-location">${esc(t('match.locationLabel'))}</label>
@@ -780,6 +788,39 @@ function showEditMatchModal(match, onSaved) {
   // Set initial player3/4 values
   if (match.player3Id) document.getElementById('edit-player3-select').value = match.player3Id;
   if (match.player4Id) document.getElementById('edit-player4-select').value = match.player4Id;
+
+  // Render initial sets
+  const editSetsContainer = document.getElementById('edit-sets-container');
+  renderEditSets(editSetsContainer);
+
+  // Add set
+  document.getElementById('edit-add-set-btn').addEventListener('click', () => {
+    if (editSets.length >= 9) return;
+    editSets.push({ p1: 0, p2: 0 });
+    renderEditSets(editSetsContainer);
+  });
+
+  // Remove set (event delegation)
+  editSetsContainer.addEventListener('click', e => {
+    const btn = e.target.closest('.set-row__remove');
+    if (!btn || btn.disabled) return;
+    const idx = parseInt(btn.dataset.idx);
+    if (editSets.length > 1) {
+      editSets.splice(idx, 1);
+      renderEditSets(editSetsContainer);
+    }
+  });
+
+  // Set score inputs (event delegation)
+  editSetsContainer.addEventListener('input', e => {
+    const input = e.target;
+    if (!input.classList.contains('set-row__score')) return;
+    const idx = parseInt(input.dataset.idx);
+    const pl = input.dataset.pl;
+    const val = Math.max(0, Math.min(99, parseInt(input.value) || 0));
+    input.value = val;
+    if (editSets[idx]) editSets[idx][pl] = val;
+  });
 
   // Doubles toggle
   document.getElementById('edit-doubles-toggle').addEventListener('click', (e) => {
