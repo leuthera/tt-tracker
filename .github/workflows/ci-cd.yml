@@ -87,6 +87,8 @@ jobs:
               echo "TLS_KEY=/etc/letsencrypt/live/h2266675.stratoserver.net/privkey.pem" >> .env
               echo "WARNING: Created default .env — update ADMIN_PASS!"
             fi
+            # Open Grafana port if firewall is active
+            sudo ufw allow 3001/tcp 2>/dev/null || true
             # Ensure Loki Docker log driver is installed
             docker plugin inspect loki > /dev/null 2>&1 || \
               docker plugin install grafana/loki-docker-driver:latest --alias loki --grant-all-permissions
