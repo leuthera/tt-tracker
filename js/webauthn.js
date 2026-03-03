@@ -47,7 +47,10 @@ async function registerPasskey(name) {
     }));
   }
 
-  // 3. Call WebAuthn API
+  // 3. Check platform authenticator support
+  const platformOk = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().catch(() => false);
+
+  // 4. Call WebAuthn API
   let credential;
   try {
     credential = await navigator.credentials.create({ publicKey });
@@ -60,6 +63,8 @@ async function registerPasskey(name) {
       algos: publicKey.pubKeyCredParams?.map(p => p.alg),
       userIdLen: publicKey.user?.id?.byteLength,
       challengeLen: publicKey.challenge?.byteLength,
+      platformAuthAvail: platformOk,
+      authAttachment: publicKey.authenticatorSelection?.authenticatorAttachment,
       ua: navigator.userAgent,
     };
     // Send to server for logging
@@ -68,12 +73,14 @@ async function registerPasskey(name) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(debug),
     }).catch(() => {});
-    const err = new Error(`${e.name}: ${e.message}\n\nDebug: ${JSON.stringify(debug)}`);
+    let msg = `${e.name}: ${e.message}`;
+    if (!platformOk) msg = 'Your device does not support passkeys. Please ensure you have a screen lock (PIN/pattern/fingerprint) set up and Google Play Services is up to date.';
+    const err = new Error(msg);
     err.name = e.name;
     throw err;
   }
 
-  // 4. Encode response
+  // 5. Encode response
   const response = {
     id: credential.id,
     rawId: bufferToBase64url(credential.rawId),
@@ -87,7 +94,7 @@ async function registerPasskey(name) {
     clientExtensionResults: credential.getClientExtensionResults(),
   };
 
-  // 5. Verify with server
+  // 6. Verify with server
   await apiFetch('/api/webauthn/register/verify', {
     method: 'POST',
     body: JSON.stringify({ response, name }),
