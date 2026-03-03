@@ -854,7 +854,7 @@ app.post('/api/webauthn/register/options', requireAuth, async (req, res) => {
       attestationType: 'none',
       authenticatorSelection: {
         authenticatorAttachment: 'platform',
-        residentKey: 'preferred',
+        residentKey: 'required',
         userVerification: 'preferred',
       },
       supportedAlgorithmIDs: [-7, -257],
