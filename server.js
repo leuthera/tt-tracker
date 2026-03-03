@@ -856,6 +856,7 @@ app.post('/api/webauthn/register/options', requireAuth, async (req, res) => {
         residentKey: 'preferred',
         userVerification: 'preferred',
       },
+      supportedAlgorithmIDs: [-7, -257],
       excludeCredentials,
     });
 
