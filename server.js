@@ -911,6 +911,12 @@ app.post('/api/webauthn/register/verify', requireAuth, async (req, res) => {
   }
 });
 
+// Client-side error reporting for WebAuthn debugging
+app.post('/api/webauthn/client-error', (req, res) => {
+  log.error({ webauthnClientError: req.body }, 'WebAuthn client-side credential error');
+  res.json({ ok: true });
+});
+
 // Authentication: generate options (no auth required)
 app.post('/api/webauthn/login/options', (req, res, next) => {
   const clientIp = req.ip || req.socket.remoteAddress;

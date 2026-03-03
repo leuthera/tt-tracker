@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'tt-tracker-v19';
+const CACHE_NAME = 'tt-tracker-v20';
 const APP_SHELL = [
   '/manifest.json',
   '/icon.svg',

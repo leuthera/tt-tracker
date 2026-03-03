@@ -60,7 +60,14 @@ async function registerPasskey(name) {
       algos: publicKey.pubKeyCredParams?.map(p => p.alg),
       userIdLen: publicKey.user?.id?.byteLength,
       challengeLen: publicKey.challenge?.byteLength,
+      ua: navigator.userAgent,
     };
+    // Send to server for logging
+    fetch('/api/webauthn/client-error', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(debug),
+    }).catch(() => {});
     const err = new Error(`${e.name}: ${e.message}\n\nDebug: ${JSON.stringify(debug)}`);
     err.name = e.name;
     throw err;
