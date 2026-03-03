@@ -48,7 +48,23 @@ async function registerPasskey(name) {
   }
 
   // 3. Call WebAuthn API
-  const credential = await navigator.credentials.create({ publicKey });
+  let credential;
+  try {
+    credential = await navigator.credentials.create({ publicKey });
+  } catch (e) {
+    const debug = {
+      name: e.name,
+      message: e.message,
+      rpId: publicKey.rp?.id,
+      origin: location.origin,
+      algos: publicKey.pubKeyCredParams?.map(p => p.alg),
+      userIdLen: publicKey.user?.id?.byteLength,
+      challengeLen: publicKey.challenge?.byteLength,
+    };
+    const err = new Error(`${e.name}: ${e.message}\n\nDebug: ${JSON.stringify(debug)}`);
+    err.name = e.name;
+    throw err;
+  }
 
   // 4. Encode response
   const response = {
