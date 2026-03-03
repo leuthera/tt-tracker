@@ -155,6 +155,7 @@
 
 - [x] ELO rating system with progression tracking
 - [x] Doubles matches (2v2)
+- [ ] Training mode — matches marked as "training" are excluded from rankings/ELO but have their own history, stats, and progress tracking
 - [ ] Tournament mode (round-robin or bracket)
 - [ ] Live scoring — score a match point-by-point in real time
 
