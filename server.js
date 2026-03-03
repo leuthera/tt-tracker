@@ -848,7 +848,9 @@ app.post('/api/webauthn/register/options', requireAuth, async (req, res) => {
     const options = await generateRegistrationOptions({
       rpName: 'TT Tracker',
       rpID: rpId,
+      userID: new Uint8Array(Buffer.from(userId)),
       userName: username,
+      userDisplayName: username,
       attestationType: 'none',
       authenticatorSelection: {
         residentKey: 'preferred',
