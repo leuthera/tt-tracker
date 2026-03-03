@@ -29,7 +29,7 @@ async function registerPasskey(name) {
   // 2. Build PublicKeyCredentialCreationOptions from JSON response
   //    Only pass spec Level 2 members — extra fields (hints, extensions)
   //    cause "unknown error" on Android credential managers.
-  const { residentKey, userVerification } = options.authenticatorSelection || {};
+  const { authenticatorAttachment, residentKey, userVerification } = options.authenticatorSelection || {};
   const publicKey = {
     challenge: base64urlToBuffer(options.challenge),
     rp: options.rp,
@@ -37,7 +37,7 @@ async function registerPasskey(name) {
     pubKeyCredParams: options.pubKeyCredParams,
     timeout: options.timeout,
     attestation: options.attestation,
-    authenticatorSelection: { residentKey, userVerification },
+    authenticatorSelection: { authenticatorAttachment, residentKey, userVerification },
   };
   if (options.excludeCredentials) {
     publicKey.excludeCredentials = options.excludeCredentials.map(c => ({
