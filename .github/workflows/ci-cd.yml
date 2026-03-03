@@ -91,6 +91,7 @@ jobs:
             # Ensure new env vars exist in .env (appends missing keys only)
             grep -q '^GRAFANA_PROTOCOL=' .env || echo "GRAFANA_PROTOCOL=https" >> .env
             # Open Grafana port if firewall is active
+            sudo ufw allow 443/tcp 2>/dev/null || true
             sudo ufw allow 3001/tcp 2>/dev/null || true
             # Ensure Loki Docker log driver is installed
             docker plugin inspect loki > /dev/null 2>&1 || \

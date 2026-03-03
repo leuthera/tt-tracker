@@ -5,6 +5,7 @@ services:
       args:
         BUILD_SHA: ${BUILD_SHA:-dev}
     ports:
+      - "443:8000"
       - "8000:8000"
     volumes:
       - /etc/letsencrypt:/etc/letsencrypt:ro
