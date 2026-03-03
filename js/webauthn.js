@@ -26,11 +26,19 @@ async function registerPasskey(name) {
   // 1. Get registration options
   const options = await apiFetch('/api/webauthn/register/options', { method: 'POST' });
 
-  // 2. Convert challenge and user.id from base64url
-  options.challenge = base64urlToBuffer(options.challenge);
-  options.user.id = base64urlToBuffer(options.user.id);
+  // 2. Build PublicKeyCredentialCreationOptions from JSON response
+  const publicKey = {
+    challenge: base64urlToBuffer(options.challenge),
+    rp: options.rp,
+    user: { ...options.user, id: base64urlToBuffer(options.user.id) },
+    pubKeyCredParams: options.pubKeyCredParams,
+    timeout: options.timeout,
+    attestation: options.attestation,
+    authenticatorSelection: options.authenticatorSelection,
+    extensions: options.extensions,
+  };
   if (options.excludeCredentials) {
-    options.excludeCredentials = options.excludeCredentials.map(c => ({
+    publicKey.excludeCredentials = options.excludeCredentials.map(c => ({
       id: base64urlToBuffer(c.id),
       type: c.type,
       transports: c.transports,
@@ -38,7 +46,7 @@ async function registerPasskey(name) {
   }
 
   // 3. Call WebAuthn API
-  const credential = await navigator.credentials.create({ publicKey: options });
+  const credential = await navigator.credentials.create({ publicKey });
 
   // 4. Encode response
   const response = {
