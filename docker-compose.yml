@@ -44,6 +44,7 @@ services:
       - "3000"
     restart: unless-stopped
   app-test:
+    profiles: ["test"]
     build: .
     ports:
       - "8001:8000"
@@ -64,6 +65,7 @@ services:
       start_period: 10s
     restart: unless-stopped
   db-test:
+    profiles: ["test"]
     build:
       context: .
       dockerfile: db-service.Dockerfile
