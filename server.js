@@ -853,6 +853,7 @@ app.post('/api/webauthn/register/options', requireAuth, async (req, res) => {
       userDisplayName: username,
       attestationType: 'none',
       authenticatorSelection: {
+        authenticatorAttachment: 'platform',
         residentKey: 'preferred',
         userVerification: 'preferred',
       },
