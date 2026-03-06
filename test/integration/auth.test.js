@@ -29,7 +29,7 @@ describe('auth', () => {
     const res = await fetch(`${server.url}/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: 'username=admin&password=testpass123',
+      body: 'username=admin&password=243c3c1b762832ffa528b85844ecf237',
       redirect: 'manual',
     });
     assert.equal(res.status, 302);

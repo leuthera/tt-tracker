@@ -5,7 +5,7 @@ const http = require('http');
 const path = require('path');
 
 const ROOT = path.join(__dirname, '..', '..');
-const TEST_DB_TOKEN = 'test-db-token';
+const TEST_DB_TOKEN = 'bec8a9eaa6f63af3aa6d0555f3b340d3';
 
 function getRandomPort() {
   return 10000 + Math.floor(Math.random() * 50000);
@@ -61,8 +61,8 @@ async function startServer(dbUrl) {
       PORT: String(port),
       DB_URL: dbUrl,
       ADMIN_USER: 'admin',
-      ADMIN_PASS: 'testpass123',
-      SESSION_SECRET: 'test-secret',
+      ADMIN_PASS: '243c3c1b762832ffa528b85844ecf237',
+      SESSION_SECRET: '3d47d2ecf45d81875ba05cf27a4e8876',
       DB_TOKEN: TEST_DB_TOKEN,
       LOG_LEVEL: 'warn',
     },
@@ -81,7 +81,7 @@ async function startServer(dbUrl) {
   return { proc, port, url };
 }
 
-async function login(baseUrl, username = 'admin', password = 'testpass123') {
+async function login(baseUrl, username = 'admin', password = '243c3c1b762832ffa528b85844ecf237') {
   const res = await fetch(`${baseUrl}/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },

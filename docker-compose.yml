@@ -49,11 +49,9 @@ services:
     build: .
     ports:
       - "8001:8000"
+    env_file:
+      - .env.test
     environment:
-      - ADMIN_PASS=testpass
-      - ADMIN_USER=admin
-      - SESSION_SECRET=test-secret
-      - DB_TOKEN=test-token
       - DB_URL=http://db-test:3000
     depends_on:
       db-test:
@@ -72,9 +70,10 @@ services:
       dockerfile: db-service.Dockerfile
     volumes:
       - tt-data-test:/data
+    env_file:
+      - .env.test
     environment:
       - DB_PATH=/data/data.db
-      - DB_TOKEN=test-token
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/healthz"]
       interval: 10s
