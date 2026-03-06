@@ -23,6 +23,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Create test env file
+        run: |
+          echo "ADMIN_PASS=$(openssl rand -hex 16)" > .env.test
+          echo "ADMIN_USER=admin" >> .env.test
+          echo "SESSION_SECRET=$(openssl rand -hex 16)" >> .env.test
+          echo "DB_TOKEN=$(openssl rand -hex 16)" >> .env.test
+
       - name: Build & start test services
         run: docker compose --profile test up -d --build app-test db-test
 
@@ -90,6 +97,7 @@ jobs:
             fi
             # Ensure new env vars exist in .env (appends missing keys only)
             grep -q '^GRAFANA_PROTOCOL=' .env || echo "GRAFANA_PROTOCOL=https" >> .env
+            grep -q '^GRAFANA_ADMIN_PASS=' .env || echo "GRAFANA_ADMIN_PASS=$(openssl rand -hex 16)" >> .env
             # Open Grafana port if firewall is active
             sudo ufw allow 443/tcp 2>/dev/null || true
             sudo ufw allow 3001/tcp 2>/dev/null || true
