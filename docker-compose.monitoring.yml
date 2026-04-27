@@ -1,34 +1,15 @@
-# Monitoring overlay — Loki + Grafana for log aggregation
+# Monitoring overlay — Loki + Promtail + Grafana for log aggregation
 #
-# Prerequisites:
-#   docker plugin install grafana/loki-docker-driver:latest --alias loki --grant-all-permissions
+# Logging architecture:
+#   App and db use the default json-file driver (configured in docker-compose.yml).
+#   Promtail tails those json-file logs from /var/lib/docker/containers and forwards
+#   them to Loki. This keeps app availability decoupled from the logging pipeline —
+#   if Loki or Promtail dies, the app keeps serving and logs accumulate on disk.
 #
 # Usage:
 #   docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d
 
 services:
-  app:
-    logging:
-      driver: loki
-      options:
-        loki-url: "http://localhost:3100/loki/api/v1/push"
-        loki-external-labels: "job=tt-tracker,service=app"
-        mode: non-blocking
-        max-buffer-size: "5m"
-        loki-retries: "5"
-        loki-batch-size: "400"
-
-  db:
-    logging:
-      driver: loki
-      options:
-        loki-url: "http://localhost:3100/loki/api/v1/push"
-        loki-external-labels: "job=tt-tracker,service=db"
-        mode: non-blocking
-        max-buffer-size: "5m"
-        loki-retries: "5"
-        loki-batch-size: "400"
-
   loki:
     image: grafana/loki:3.4
     ports:
@@ -42,6 +23,22 @@ services:
       retries: 5
       start_period: 20s
     restart: unless-stopped
+    labels:
+      - autoheal=true
+
+  promtail:
+    image: grafana/promtail:3.4.0
+    command: -config.file=/etc/promtail/config.yml
+    volumes:
+      - ./monitoring/promtail/config.yml:/etc/promtail/config.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - promtail-data:/tmp
+    depends_on:
+      - loki
+    restart: unless-stopped
+    labels:
+      - autoheal=true
 
   grafana:
     image: grafana/grafana:11.6.0
@@ -67,7 +64,10 @@ services:
       retries: 3
       start_period: 15s
     restart: unless-stopped
+    labels:
+      - autoheal=true
 
 volumes:
   loki-data:
   grafana-data:
+  promtail-data:

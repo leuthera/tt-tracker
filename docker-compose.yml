@@ -24,6 +24,13 @@ services:
       retries: 3
       start_period: 10s
     restart: unless-stopped
+    labels:
+      - autoheal=true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
   db:
     build:
       context: .
@@ -44,6 +51,22 @@ services:
     expose:
       - "3000"
     restart: unless-stopped
+    labels:
+      - autoheal=true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+  autoheal:
+    image: willfarrell/autoheal:1.2.0
+    restart: unless-stopped
+    environment:
+      - AUTOHEAL_CONTAINER_LABEL=autoheal
+      - AUTOHEAL_INTERVAL=30
+      - AUTOHEAL_START_PERIOD=60
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
   app-test:
     profiles: ["test"]
     build: .
